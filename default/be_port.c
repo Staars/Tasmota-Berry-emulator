@@ -17,6 +17,58 @@
 
 /* standard input and output */
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#include <stdlib.h>
+
+EM_JS(void, _js_writebuffer, (const char *text, size_t length), {
+    // Note how we return the output of handleAsync() here.
+    return Asyncify.handleAsync(async() => {
+        await writeOutputText(UTF8ToString(text, length));
+    });
+})
+
+BERRY_API void be_writebuffer(const char *buffer, size_t length)
+{
+    _js_writebuffer(buffer, length);
+}
+
+EM_JS(char*, _js_readbuffer, (void), {
+    // Note how we return the output of handleAsync() here.
+    return Asyncify.handleAsync(async() => {
+        const text = await waitLineText();
+        // 'jsString.length' would return the length of the string as UTF-16
+        // units, but Emscripten C strings operate as UTF-8.
+        var lengthBytes = lengthBytesUTF8(text) + 1;
+        var stringOnWasmHeap = _malloc(lengthBytes);
+        stringToUTF8(text, stringOnWasmHeap, lengthBytes);
+        return stringOnWasmHeap;
+    });
+})
+
+BERRY_API char* be_readstring(char *buffer, size_t size)
+{
+    static size_t len = 0;
+    static char *buf = NULL;
+    if (!buf) {
+        buf = _js_readbuffer();
+        len = strlen(buf);
+    }
+    if (len >= size) {
+        strncpy(buffer, buf, size - 1);
+        buffer[size] = '\0';
+        len -= size;
+        buf += size;
+    } else {
+        strcpy(buffer, buf);
+        free(buf);
+        buf = NULL;
+    }
+    return buffer;
+}
+
+#else
+
 BERRY_API void be_writebuffer(const char *buffer, size_t length)
 {
     be_fwrite(stdout, buffer, length);
@@ -26,6 +78,7 @@ BERRY_API char* be_readstring(char *buffer, size_t size)
 {
     return be_fgets(stdin, buffer, (int)size);
 }
+#endif
 
 /* use the standard library implementation file API. */
 #if !defined(USE_FATFS)

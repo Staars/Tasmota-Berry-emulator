@@ -2,7 +2,7 @@ CFLAGS      = -Wall -Wextra -std=c99 -O2 -Wno-zero-length-array -Wno-empty-trans
 DEBUG_FLAGS = -O0 -g -DBE_DEBUG
 TEST_FLAGS  = $(DEBUG_FLAGS) --coverage -fno-omit-frame-pointer -fsanitize=address -fsanitize=undefined
 LIBS        = -lm
-TARGET      = berry
+TARGET      = docs/berry.js
 CC          = clang # install clang!! gcc seems to produce a defect berry binary
 MKDIR       = mkdir
 LFLAGS      =
@@ -85,9 +85,6 @@ $(CONST_TAB): $(GENERATE) $(SRCS) $(CONFIG)
 
 $(GENERATE):
 	$(Q) $(MKDIR) $(GENERATE)
-
-web:
-	$(CC) $(OBJS) -o berry.html
 
 install:
 	mkdir -p $(DESTDIR)$(BINDIR)
