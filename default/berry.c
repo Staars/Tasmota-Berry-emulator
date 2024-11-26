@@ -44,6 +44,8 @@
     #define COMPILER  "ARMCC"
 #elif defined(__ICCARM__)
     #define COMPILER  "IAR"
+#elif defined(__EMSCRIPTEN__)
+    #define COMPILER  "EMCC"
 #else
     #define COMPILER  "Unknown Compiler"
 #endif
@@ -58,6 +60,7 @@
 #define repl_prelude                                                \
     FULL_VERSION " (build in " __DATE__ ", " __TIME__ ")\n"         \
     "[" COMPILER "] on " OS_NAME " (default)\n"                     \
+    "\n"
 
 /* command help information */
 #define help_information                                            \
@@ -149,12 +152,20 @@ static int arg_getopt(struct arg_opts *opt, int argc, char *argv[])
 /* portable readline function package */
 static char* get_line(const char *prompt)
 {
-#if defined(USE_READLINE_LIB)
+#if defined(USE_READLINE_LIB) && !defined(__EMSCRIPTEN__)
     char *line = readline(prompt);
     if (line && strlen(line)) {
         add_history(line);
     }
     return line;
+#elif defined(__EMSCRIPTEN__)
+    static char buffer[1000];
+    be_writebuffer(prompt, strlen(prompt));
+    if (be_readstring(buffer, sizeof(buffer))) {
+        buffer[strlen(buffer) - 1] = '\0';
+        return buffer;
+    }
+    return NULL;
 #else
     static char buffer[1000];
     fputs(prompt, stdout);
@@ -169,7 +180,7 @@ static char* get_line(const char *prompt)
 
 static void free_line(char *ptr)
 {
-#if defined(USE_READLINE_LIB)
+#if defined(USE_READLINE_LIB) && !defined(__EMSCRIPTEN__)
     free(ptr);
 #else
     (void)ptr;
@@ -359,6 +370,7 @@ static void berry_paths(bvm * vm)
     }
 }
 
+#if !defined(__EMSCRIPTEN__)
 int main(int argc, char *argv[])
 {
     int res;
@@ -368,5 +380,18 @@ int main(int argc, char *argv[])
     be_vm_delete(vm); /* free all objects and vm */
     return res;
 }
+#else
+int main(void)
+{
+    bvm *vm = be_vm_new(); /* create a virtual machine instance */
+    be_writestring("\033[32m" repl_prelude "\033[39m");
+    if (be_repl(vm, get_line, free_line) == -BE_MALLOC_FAIL) {
+        be_writestring("error: memory allocation failed.\n");
+    }
+    berry_paths(vm);
+    be_vm_delete(vm); /* free all objects and vm */
+    return 0;
+}
+#endif
 
 #endif // COMPILE_BERRY_LIB
