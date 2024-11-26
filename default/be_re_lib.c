@@ -8,7 +8,7 @@
 #include "be_constobj.h"
 #include "be_mem.h"
 #include "be_object.h"
-#include "../../re1.5/re1.5.h"
+#include "../re1.5/re1.5.h"
 
 /********************************************************************
 # Berry skeleton for `re` module
