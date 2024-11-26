@@ -21,6 +21,13 @@
 #include <emscripten.h>
 #include <stdlib.h>
 
+EM_JS(void, _js_writeFile, (const char *text, size_t length), {
+    // Note how we return the output of handleAsync() here.
+    return Asyncify.handleAsync(async() => {
+        await writeOutputFile(UTF8ToString(text, length));
+    });
+})
+
 EM_JS(void, _js_writebuffer, (const char *text, size_t length), {
     // Note how we return the output of handleAsync() here.
     return Asyncify.handleAsync(async() => {
@@ -95,6 +102,9 @@ int be_fclose(void *hfile)
 
 size_t be_fwrite(void *hfile, const void *buffer, size_t length)
 {
+#ifdef __EMSCRIPTEN__
+    _js_writeFile(buffer,length);
+#endif
     return fwrite(buffer, 1, length, hfile);
 }
 

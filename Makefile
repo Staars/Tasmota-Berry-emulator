@@ -15,6 +15,7 @@ GENERATE    = generate
 CONFIG      = default/berry_conf.h
 COC         = tools/coc/coc
 CONST_TAB   = $(GENERATE)/be_const_strtab.h
+EMBED_FILES =
 
 ifeq ($(OS), Windows_NT) # Windows
     CFLAGS    += -Wno-format -DTASMOTA # for "%I64d" warning, mimick Tasmota env with 32 bits int and 32 bits float
@@ -49,10 +50,12 @@ all: $(TARGET)
 
 web: CFLAGS    = -Wall -Wextra -std=c99 -Wno-empty-translation-unit -O2 -Wno-zero-length-array
 web: LIBS      = -lm -ldl
+web: LFLAGS.   =
 web: TARGET    = berry.js
 web: CC        = emcc
+web: EMBED_FILES    = --preload-file tasmota_env --preload-file tasmota  --preload-file env.be@/env.be --preload-file start_env.be@/start_env.be
 web: LFLAGS    = -s WASM=0 -s ASYNCIFY \
-            	 -s 'ASYNCIFY_IMPORTS=["_js_readbuffer", "_js_writebuffer"]'
+            	 -s 'ASYNCIFY_IMPORTS=["_js_readbuffer", "_js_writebuffer", "_js_writeFile"]'
 web: all
 
 debug: CFLAGS += $(DEBUG_FLAGS)
@@ -67,7 +70,7 @@ test: all
 
 $(TARGET): $(OBJS)
 	$(MSG) [Linking...]
-	$(Q) $(CC) $(OBJS) $(LFLAGS) $(LIBS) -o $@
+	$(Q) $(CC) $(OBJS) $(LFLAGS) $(LIBS) -o $@ $(EMBED_FILES)
 	$(MSG) done
 
 $(OBJS): %.o: %.c
