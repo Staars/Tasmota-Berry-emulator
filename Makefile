@@ -47,6 +47,14 @@ INCFLAGS = $(foreach dir, $(INCPATH), -I"$(dir)")
 
 all: $(TARGET)
 
+web: CFLAGS    = -Wall -Wextra -std=c99 -Wno-empty-translation-unit -O2 -Wno-zero-length-array
+web: LIBS      = -lm -ldl
+web: TARGET    = berry.js
+web: CC        = emcc
+web: LFLAGS    = -s WASM=0 -s ASYNCIFY \
+            	 -s 'ASYNCIFY_IMPORTS=["_js_readbuffer", "_js_writebuffer"]'
+web: all
+
 debug: CFLAGS += $(DEBUG_FLAGS)
 debug: all
 
@@ -77,6 +85,9 @@ $(CONST_TAB): $(GENERATE) $(SRCS) $(CONFIG)
 
 $(GENERATE):
 	$(Q) $(MKDIR) $(GENERATE)
+
+web:
+	$(CC) $(OBJS) -o berry.html
 
 install:
 	mkdir -p $(DESTDIR)$(BINDIR)
