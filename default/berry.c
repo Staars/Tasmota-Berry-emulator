@@ -59,8 +59,7 @@
 /* prompt message when REPL is loaded */
 #define repl_prelude                                                \
     FULL_VERSION " (build in " __DATE__ ", " __TIME__ ")\n"         \
-    "[" COMPILER "] on " OS_NAME " (default)\n"                     \
-    "\n"
+    "[" COMPILER "] on " OS_NAME " (default)\n\r "                     \
 
 /* command help information */
 #define help_information                                            \

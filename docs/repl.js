@@ -119,7 +119,7 @@ var readline = (function () {
     },
     readline: async function () {
       const waitms = delay => new Promise(resolve => setTimeout(resolve, delay));
-      while (!line) await waitms(0);
+      while (!line) await waitms(50);
       var str = line;
       line = null;
       return str;
@@ -135,4 +135,7 @@ async function waitLineText(prompt) {
 }
 async function writeOutputText(text) {
   term.write(text.replace("\n", "\r\n"));
+}
+async function writeOutputFile(text) {
+  console.log(text);
 }
