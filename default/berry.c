@@ -383,7 +383,7 @@ int main(int argc, char *argv[])
 int main(void)
 {
     bvm *vm = be_vm_new(); /* create a virtual machine instance */
-    be_writestring("\033[32m" repl_prelude "\033[39m");
+    be_writestring(repl_prelude);
     if (be_repl(vm, get_line, free_line) == -BE_MALLOC_FAIL) {
         be_writestring("error: memory allocation failed.\n");
     }
