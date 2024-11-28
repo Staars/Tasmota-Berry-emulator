@@ -241,10 +241,12 @@ be_extern_native_class(lv_clock_icon);
 be_extern_native_class(int64);
 
 BERRY_LOCAL bclass_array be_class_table = {
-#ifdef TASMOTA
+#if defined(TASMOTA) || defined(__EMSCRIPTEN__)
+    &be_native_class(tasmota),
+#endif 
+#if defined(TASMOTA)
     /* first list are direct classes */
     &be_native_class(dyn),
-    &be_native_class(tasmota),
     &be_native_class(Trigger),
     &be_native_class(Driver),
     &be_native_class(serial),
