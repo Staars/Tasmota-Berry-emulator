@@ -7,7 +7,7 @@ import sys
 sys.path().push(".")
 
 # import modules
-import tasmota
+# import tasmota
 import light_state
 import Leds_frame
 
