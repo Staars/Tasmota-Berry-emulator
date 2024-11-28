@@ -64,6 +64,8 @@ class Leds_frame : bytes
         dest_buf[i * 3 + 2] = src_b
         i += 1
       end
+    var now = tasmota.millis()
+    tasmota.log(f'{{"t":{now:5i},"buf":"{global._strip.pixels_buffer().tohex()}"}}\n')
     end
   end
 

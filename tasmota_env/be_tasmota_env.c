@@ -157,12 +157,12 @@ int16_t changeIntScale(int16_t num, int16_t from_min, int16_t from_max,
   //
   int32_t l_scaleuint(struct bvm *vm) {
     int32_t top = be_top(vm); // Get the number of arguments
-    if (top == 5 && be_isint(vm, 1) && be_isint(vm, 2) && be_isint(vm, 3) && be_isint(vm, 4) && be_isint(vm, 5)) {
-      int32_t val = be_toint(vm, 1);
-      int32_t from_min = be_toint(vm, 2);
-      int32_t from_max = be_toint(vm, 3);
-      int32_t to_min = be_toint(vm, 4);
-      int32_t to_max = be_toint(vm, 5);
+    if (top == 6 && be_isint(vm, 2) && be_isint(vm, 3) && be_isint(vm, 4) && be_isint(vm, 5) && be_isint(vm, 6)) {
+      int32_t val = be_toint(vm, 2);
+      int32_t from_min = be_toint(vm, 3);
+      int32_t from_max = be_toint(vm, 4);
+      int32_t to_min = be_toint(vm, 5);
+      int32_t to_max = be_toint(vm, 6);
       int32_t scaled = changeUIntScale(val, from_min, from_max, to_min, to_max);
       be_pushint(vm, scaled);
       be_return(vm);
@@ -175,12 +175,12 @@ int16_t changeIntScale(int16_t num, int16_t from_min, int16_t from_max,
 
   int32_t l_scaleint(struct bvm *vm) {
     int32_t top = be_top(vm); // Get the number of arguments
-    if (top == 5 && be_isint(vm, 1) && be_isint(vm, 2) && be_isint(vm, 3) && be_isint(vm, 4) && be_isint(vm, 5)) {
-      int32_t val = be_toint(vm, 1);
-      int32_t from_min = be_toint(vm, 2);
-      int32_t from_max = be_toint(vm, 3);
-      int32_t to_min = be_toint(vm, 4);
-      int32_t to_max = be_toint(vm, 5);
+    if (top == 6 && be_isint(vm, 2) && be_isint(vm, 3) && be_isint(vm, 4) && be_isint(vm, 5) && be_isint(vm, 6)) {
+      int32_t val = be_toint(vm, 2);
+      int32_t from_min = be_toint(vm, 3);
+      int32_t from_max = be_toint(vm, 4);
+      int32_t to_min = be_toint(vm, 5);
+      int32_t to_max = be_toint(vm, 6);
       int32_t scaled = changeIntScale(val, from_min, from_max, to_min, to_max);
       be_pushint(vm, scaled);
       be_return(vm);
@@ -198,10 +198,29 @@ int16_t changeIntScale(int16_t num, int16_t from_min, int16_t from_max,
 
   int32_t l_sineint(struct bvm *vm) {
     int32_t top = be_top(vm); // Get the number of arguments
-    if (top == 1 && be_isint(vm, 1)) {
-      int32_t val = be_toint(vm, 1);
+    if (top == 2 && be_isint(vm, 2)) {
+      int32_t val = be_toint(vm, 2);
 
       be_pushint(vm, fpsin(val));
+      be_return(vm);
+    }
+    be_raise(vm, kTypeError, nullptr);
+  }
+
+  int32_t l_dummy(struct bvm *vm) {
+    //int32_t top = be_top(vm); // Implement later or never
+    // if (top == 1) {
+      be_pushbool(vm, btrue);
+      be_return(vm);
+    //}
+    //be_raise(vm, kTypeError, nullptr);
+  }
+
+  int32_t l_log(struct bvm *vm) {
+    int32_t top = be_top(vm); // Implement later or never
+    if (top == 2 && be_isstring(vm, 2)) {
+      const char* msg = be_tostring(vm, 2);
+      emscripten_console_log(msg);
       be_return(vm);
     }
     be_raise(vm, kTypeError, nullptr);
@@ -224,6 +243,12 @@ class be_class_tasmota (scope: global, name: tasmota) {
     scale_uint, func(l_scaleuint)
     scale_int, func(l_scaleint)
     sine_int, func(l_sineint)
+    time_reached, func(l_dummy)
+    fast_loop, func(l_dummy)
+    add_fast_loop, func(l_dummy)
+    remove_fast_loop, func(l_dummy)
+    set_millis, func(l_dummy)
+    log, func(l_log)
 }
 @const_object_info_end */
 #include "../generate/be_fixed_be_class_tasmota.h"

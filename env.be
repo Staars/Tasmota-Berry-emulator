@@ -7,12 +7,13 @@ sys.path().push('./tasmota')
 # import all Tasmota emulator stuff to be global
 import global
 
+global.tasmota = tasmota()
+
 import load
 import gpio
-# import light_state
+import light_state
 import Leds
 import Leds_frame
-import tasmota
 import animate
 
 return env
