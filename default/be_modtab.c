@@ -117,9 +117,12 @@ BERRY_LOCAL const bntvmodule_t* const be_module_table[] = {
 
     &be_native_module(re),
     &be_native_module(path),
-#ifdef TASMOTA
+
+#if defined(TASMOTA) || defined(__EMSCRIPTEN__)    
     /* Berry extensions */
     &be_native_module(cb),
+#endif
+#ifdef TASMOTA
 
     /* user-defined modules register start */
     
@@ -239,13 +242,16 @@ be_extern_native_class(lv_clock);
 be_extern_native_class(lv_clock_icon);
 
 be_extern_native_class(int64);
-
+#if defined(__EMSCRIPTEN__)
+be_extern_native_class(tasmota_wasm);
+#endif
 BERRY_LOCAL bclass_array be_class_table = {
 #if defined(TASMOTA) || defined(__EMSCRIPTEN__)
-    &be_native_class(tasmota),
+    &be_native_class(tasmota_wasm),
 #endif 
 #if defined(TASMOTA)
     /* first list are direct classes */
+    &be_native_class(tasmota),
     &be_native_class(dyn),
     &be_native_class(Trigger),
     &be_native_class(Driver),

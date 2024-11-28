@@ -2,7 +2,7 @@
 
 import global
 
-class Tasmota
+class Tasmota : tasmota_wasm
   var _millis           # emulate millis from Tasmota
   var _fl               # fast_loop
 
@@ -74,19 +74,19 @@ class Tasmota
     return _class.scale_uint(num + from_offset, from_min + from_offset, from_max + from_offset, to_min + to_offset, to_max + to_offset) - to_offset
   end
 
-  def millis(offset)
-    return self._millis + (offset == nil ? 0 : offset)
-  end
+  # def millis(offset)
+  #   return self._millis + (offset == nil ? 0 : offset)
+  # end
 
   # internal debugging function
-  def set_millis(m)
-    self._millis = m
-  end
+  # def set_millis(m)
+  #   self._millis = m
+  # end
 
-  def time_reached(t)
-    # naive implementation because the emulator will not run over 20 days
-    return (t <= self._millis)
-  end
+  # def time_reached(t)
+  #   # naive implementation because the emulator will not run over 20 days
+  #   return (t <= self._millis)
+  # end
 
   # fast_loop() is a trimmed down version of event() called at every Tasmota loop iteration
   # it is optimized to be as fast as possible and reduce overhead

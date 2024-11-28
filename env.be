@@ -7,7 +7,8 @@ sys.path().push('./tasmota')
 # import all Tasmota emulator stuff to be global
 import global
 
-global.tasmota = tasmota()
+# global.tasmota = tasmota()
+#import tasmota
 
 import load
 import gpio
