@@ -120,12 +120,12 @@ BERRY_LOCAL const bntvmodule_t* const be_module_table[] = {
 
 #if defined(TASMOTA) || defined(__EMSCRIPTEN__)    
     /* Berry extensions */
-    &be_native_module(cb),
+
 #endif
 #ifdef TASMOTA
 
     /* user-defined modules register start */
-    
+    &be_native_module(cb),
     &be_native_module(python_compat),
     &be_native_module(mqtt),
     &be_native_module(persist),
