@@ -116,7 +116,6 @@ void tasmota_run_loop(void *userData){
   }
   if(now%1000 == 0){
     callBerryEventDispatcher(("every_second"), nullptr, 0, nullptr,0);
-    emscripten_console_log("every second");
   }
   now += 5;
 }
@@ -125,7 +124,6 @@ void tasmota_emulator_init(bvm *vm){
   berry.vm = vm;
   berry.interValID = emscripten_set_interval(tasmota_run_loop,5,(void*)0); // fastloop of 5ms is our tick
   emscripten_console_log("Did init Tasmota emulator");
-  emscripten_exit_with_live_runtime();
 }
 
 // tasmota class
