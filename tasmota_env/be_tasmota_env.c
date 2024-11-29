@@ -15,15 +15,15 @@ const char kInternalError[] = "internal_error";
 struct BrStruct{
   bvm *vm;                    // berry vm
   int32_t timeout;                 // Berry heartbeat timeout, preventing code to run for too long. `0` means not enabled
-  bool rules_busy;              // are we already processing rules, avoid infinite loop
-  bool web_add_handler_done;    // did we already sent `web_add_handler` event
-  bool autoexec_donee;           // do we still need to load 'autoexec.be'
-  bool repl_active;             // is REPL running (activates log recording)
+  bbool rules_busy;              // are we already processing rules, avoid infinite loop
+  bbool web_add_handler_done;    // did we already sent `web_add_handler` event
+  bbool autoexec_donee;           // do we still need to load 'autoexec.be'
+  bbool repl_active;             // is REPL running (activates log recording)
   // output log is stored as a LinkedList of buffers
   // and active only when a REPL command is running
   // BerryLog log;
 };
-struct BrStruct berry = {nullptr,0,false,false,false,false};
+struct BrStruct berry = {nullptr,0,bfalse,bfalse,bfalse,bfalse};
 
 void checkBeTop(void) {
   int32_t top = be_top(berry.vm);
@@ -111,7 +111,7 @@ static int32_t l_timereached(struct bvm *vm) {
   int32_t top = be_top(vm); // Get the number of arguments
   if (top == 2 && be_isint(vm, 2)) {  // only 1 argument of type string accepted
     uint32_t timer = be_toint(vm, 2);
-    bool reached = (timer <= emscripten_performance_now());
+    bbool reached = (timer <= emscripten_performance_now());
     be_pushbool(vm, reached);
     be_return(vm); // Return
   }
