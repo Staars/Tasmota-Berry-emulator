@@ -6,16 +6,17 @@ sys.path().push('./tasmota')
 
 # import all Tasmota emulator stuff to be global
 import global
-
-# global.tasmota = tasmota()
-#import tasmota
-
 import load
 import gpio
+
+global.tasmota = tasmota_wasm()
+load("tasmota_env/tasmota.be")
+
 import light_state
 import Leds
 import Leds_frame
 import animate
+
 
 return env
 
@@ -24,7 +25,7 @@ return env
 #
 var now = 0
 var fname = "output.jsonl"
-var duration = 3000
+var duration = 300
 
 if (global._strip == nil)       raise "error", "global._strip is not initialized"       end
 
@@ -37,8 +38,8 @@ var fout = open(fname, "w")
 fout.write(f'{{"leds":{global._strip.pixel_count():i}}}\n')
 
 while now < duration
-  tasmota.set_millis(now)
-  tasmota.fast_loop()
+  #tasmota.set_millis(now)
+  #tasmota.fast_loop()
   
   fout.write(f'{{"t":{now:5i},"buf":"{global._strip.pixels_buffer().tohex()}"}}\n')
 
