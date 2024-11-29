@@ -22,8 +22,9 @@ struct BrStruct{
   // output log is stored as a LinkedList of buffers
   // and active only when a REPL command is running
   // BerryLog log;
+  long interValID;
 };
-struct BrStruct berry = {nullptr,0,bfalse,bfalse,bfalse,bfalse};
+struct BrStruct berry = {nullptr,0,bfalse,bfalse,bfalse,bfalse,0};
 
 void checkBeTop(void) {
   int32_t top = be_top(berry.vm);
@@ -32,11 +33,10 @@ void checkBeTop(void) {
   }
 }
 
-  void be_error_pop_all(bvm *vm) {
-    // if (vm->obshook != NULL) (*vm->obshook)(vm, BE_OBS_PCALL_ERROR); // TODO
-    be_pop(vm, be_top(vm));       // clear Berry stack
-  }
-
+void be_error_pop_all(bvm *vm) {
+  // if (vm->obshook != NULL) (*vm->obshook)(vm, BE_OBS_PCALL_ERROR); // TODO
+  be_pop(vm, be_top(vm));       // clear Berry stack
+}
 
 // call the event dispatcher from Tasmota object
 // if data_len is non-zero, the event is also sent as raw `bytes()` object because the string may lose data
@@ -80,6 +80,55 @@ int32_t callBerryEventDispatcher(const char *type, const char *cmd, int32_t idx,
   checkBeTop();
   return ret;
 }
+
+void callBerryFastLoop(bbool every_5ms) {
+
+  bvm *vm = berry.vm;
+  if (nullptr == vm) { return; }
+
+  // TODO - can we make this dereferencing once for all?
+  if (be_getglobal(vm, "tasmota")) {
+    if (be_getmethod(vm, -1, "fast_loop")) {
+      be_pushvalue(vm, -2); // add instance as first arg
+      int32_t ret = be_pcall(vm, 1);
+      if (ret != 0) {
+        be_error_pop_all(berry.vm);             // clear Berry stack
+      }
+      be_pop(vm, 1);
+    }
+    be_pop(vm, 1);  // remove method
+  }
+  be_pop(vm, 1);  // remove instance object
+  be_pop(vm, be_top(vm));   // clean
+}
+
+void tasmota_run_loop(void *userData){
+  static uint32_t now = 0;
+  callBerryFastLoop(btrue);
+  if(now%50 == 0){
+    callBerryEventDispatcher(("every_50ms"), nullptr, 0, nullptr,0);
+  }
+  if(now%100 == 0){
+    callBerryEventDispatcher(("every_100ms"), nullptr, 0, nullptr,0);
+  }
+  if(now%250 == 0){
+    callBerryEventDispatcher(("every_250ms"), nullptr, 0, nullptr,0);
+  }
+  if(now%1000 == 0){
+    callBerryEventDispatcher(("every_second"), nullptr, 0, nullptr,0);
+    emscripten_console_log("every second");
+  }
+  now += 5;
+}
+
+void tasmota_emulator_init(bvm *vm){
+  berry.vm = vm;
+  berry.interValID = emscripten_set_interval(tasmota_run_loop,5,(void*)0); // fastloop of 5ms is our tick
+  emscripten_console_log("Did init Tasmota emulator");
+  emscripten_exit_with_live_runtime();
+}
+
+// tasmota class
 
 static int32_t l_millis(struct bvm *vm) {
   int32_t top = be_top(vm); // Get the number of arguments

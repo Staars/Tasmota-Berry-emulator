@@ -14,6 +14,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
+
 /* using GNU/readline library */
 #if defined(USE_READLINE_LIB)
     #include <readline/readline.h>
@@ -380,6 +384,7 @@ int main(int argc, char *argv[])
     return res;
 }
 #else
+extern void tasmota_emulator_init(bvm *vm);
 int main(void)
 {
     bvm *vm = be_vm_new(); /* create a virtual machine instance */
@@ -388,6 +393,8 @@ int main(void)
         be_writestring("error: memory allocation failed.\n");
     }
     berry_paths(vm);
+    tasmota_emulator_init(vm);
+    printf("Tasmota emulator should be online\n");
     be_vm_delete(vm); /* free all objects and vm */
     return 0;
 }
