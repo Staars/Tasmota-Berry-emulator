@@ -207,7 +207,7 @@
                     new Promise((resolve) => setTimeout(resolve, delay));
                 while (!readline) await waitms(10);
                 var prompt = readline;
-                prompt += "z";
+                prompt += " ";
                 readline = null;
                 console.log("okay:", prompt);
                 return prompt;
