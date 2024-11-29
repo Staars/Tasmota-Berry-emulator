@@ -19,7 +19,10 @@
                 tp,
                 pc = "",
                 readline = "",
-                readbuffer = "";
+                readbuffer = "",
+                ws2812ledbuffer = "",
+                led_canvas,
+                led_canvas_ctx;
             eb = (s) => document.getElementById(s);
             qs = (s) => document.querySelector(s);
             sp = (i) =>
@@ -151,6 +154,9 @@
                 eb("t1").addEventListener("dragenter", preventDefaults);
                 eb("t1").addEventListener("dragleave", preventDefaults);
                 eb("t1").addEventListener("drop", upl);
+
+                led_canvas = eb("canvas");
+                led_canvas_ctx = led_canvas.getContext("2d");
             }
             function sf(s) {
                 var t = 0,
@@ -202,6 +208,15 @@
                 }
             }
 
+            function drawLED(msg){
+                for (let i = 0; i < msg.length; i+=6) {
+                        led_canvas_ctx.fillStyle = `#${msg.substring(i,i+6)}`;
+                        // led_canvas_ctx.fillStyle = `#eeeeee`;
+                        led_canvas_ctx.fillRect((i/6) * 25, 0, 25, 25);
+                        console.log(msg.substring(i,i+6));
+                }
+            }
+
             async function waitLineText() {
                 const waitms = (delay) =>
                     new Promise((resolve) => setTimeout(resolve, delay));
@@ -211,8 +226,6 @@
                 readline = null;
                 console.log("okay:", prompt);
                 return prompt;
-                // }
-                // else throw("nothing here!!");
             }
             async function writeOutputText(text) {
                 console.log("from Berry:", text);
@@ -225,8 +238,11 @@
                     }
                 }
             }
-            async function writeOutputFile(text) {
-                console.log(text);
+            // async function writeOutputFile(text) {
+            //     console.log(text);
+            // }
+            function writeLedBuffer(msg){
+                drawLED(msg);
             }
         </script>
         <style>
@@ -369,6 +385,7 @@
                 <h3>Berry in a Browser</h3>
                 <h2>Tasmota emulator</h2>
             </div>
+            <canvas id="canvas" width="800" height="30"></canvas>
             <style>
                 .br1 {
                     border-left: dotted 2px #860;
