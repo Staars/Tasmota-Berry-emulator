@@ -28,14 +28,6 @@ EM_JS(void, _js_writeFile, (const char *text, size_t length), {
     });
 })
 
-EM_JS(void, _js_uploadFile, (const char *text, size_t length), {
-    return Asyncify.handleAsync(async() => {
-        const file = await uploadFile();
-        FS.writeFile(file.name, file.data);
-        FS.close();
-    });
-})
-
 EM_JS(void, _js_writebuffer, (const char *text, size_t length), {
     // Note how we return the output of handleAsync() here.
     return Asyncify.handleAsync(async() => {
