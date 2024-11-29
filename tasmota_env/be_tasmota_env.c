@@ -7,6 +7,7 @@
 #include "be_gc.h"
 #include <stdint.h>
 #include <emscripten/html5.h>
+#include <string.h>
 
 const char kTypeError[] = "type_error";
 const char kInternalError[] = "internal_error";
@@ -176,6 +177,18 @@ static int32_t l_log(struct bvm *vm) {
 }
 
 
+extern void be_writeEmulatorbuffer(const char *buffer, size_t length);
+static int32_t l_led_buffer(struct bvm *vm) {
+  int32_t top = be_top(vm); // Implement later or never
+  if (top == 2 && be_isstring(vm, 2)) {
+    const char* msg = be_tostring(vm, 2);
+    be_writeEmulatorbuffer(msg, strlen(msg));
+    be_return(vm);
+  }
+  be_raise(vm, kTypeError, nullptr);
+}
+
+
 #if !BE_USE_PRECOMPILED_OBJECT
 void be_load_tasmotawasmlib(bvm *vm)
 {
@@ -195,6 +208,7 @@ class be_class_tasmota_wasm (scope: global, name: tasmota_wasm) {
     remove_fast_loop, func(l_dummy)
     set_millis, func(l_dummy)
     log, func(l_log)
+    led_buffer, func(l_led_buffer)
 }
 @const_object_info_end */
 #include "../generate/be_fixed_be_class_tasmota_wasm.h"
