@@ -389,13 +389,13 @@ int main(void)
 {
     bvm *vm = be_vm_new(); /* create a virtual machine instance */
     be_writestring(repl_prelude);
+    tasmota_emulator_init(vm);
     if (be_repl(vm, get_line, free_line) == -BE_MALLOC_FAIL) {
         be_writestring("error: memory allocation failed.\n");
     }
-    berry_paths(vm);
-    tasmota_emulator_init(vm);
-    printf("Tasmota emulator should be online\n");
+    //berry_paths(vm);
     be_vm_delete(vm); /* free all objects and vm */
+    emscripten_exit_with_live_runtime();
     return 0;
 }
 #endif
