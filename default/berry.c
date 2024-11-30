@@ -37,6 +37,11 @@
     #define OS_NAME   "Unknown OS"
 #endif
 
+#if defined(__EMSCRIPTEN__)
+    #undef OS_NAME
+    #define OS_NAME  "WASM"
+#endif
+
 /* detect compiler name and version */
 #if defined(__clang__)
     #define COMPILER  "clang " __clang_version__
@@ -48,10 +53,13 @@
     #define COMPILER  "ARMCC"
 #elif defined(__ICCARM__)
     #define COMPILER  "IAR"
-#elif defined(__EMSCRIPTEN__)
-    #define COMPILER  "EMCC"
 #else
     #define COMPILER  "Unknown Compiler"
+#endif
+
+#if defined(__EMSCRIPTEN__)
+    #undef COMPILER
+    #define COMPILER  "EMCC"
 #endif
 
 #if BE_DEBUG

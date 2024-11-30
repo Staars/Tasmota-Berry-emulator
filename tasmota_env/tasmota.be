@@ -5,6 +5,7 @@ import global
 class Tasmota : tasmota_wasm
   var _millis           # emulate millis from Tasmota
   var _fl               # fast_loop
+  var _drivers
 
   def init()
     self._millis = 1
@@ -142,6 +143,111 @@ class Tasmota : tasmota_wasm
     var r = int(y * 4096)
     return r
   end
+
+  def time_str(time_stamp)
+    import time
+    var tm = time.dump(time_stamp)
+    return format("%04d-%02d-%02dT%02d:%02d:%02d", tm['year'], tm['month'], tm['day'], tm['hour'], tm['min'], tm['sec'])
+  end
+
+  def gc()
+    import gc
+    gc.collect()
+    return gc.allocated()
+  end
+
+  def add_driver(d)
+    if type(d) != 'instance'
+      raise "value_error", "instance required"
+    end
+    if self._drivers
+      if self._drivers.find(d) == nil     # add only if not already added
+        self._drivers.push(d)
+      end
+    else
+      self._drivers = [d]
+    end
+  end
+
+  def remove_driver(d)
+    if self._drivers
+      var idx = self._drivers.find(d)
+      if idx != nil
+        self._drivers.pop(idx)
+      end
+    end
+  end
+
+  # run every 50ms tick
+  def run_deferred()
+    if self._timers
+      var i=0
+      while i < self._timers.size()
+        var trigger = self._timers[i]
+
+        if self.time_reached(trigger.trig)
+          var f = trigger.f
+          self._timers.remove(i)      # one shot event
+          f()
+        else
+          i += 1
+        end
+      end
+    end
+  end
+  
+
+  def event(event_type, cmd, idx, payload, raw)
+    import introspect
+    if event_type=='every_50ms'
+      self.run_deferred()
+    end  #- first run deferred events -#
+
+    if event_type=='every_250ms'
+      self.run_cron()
+    end
+
+    var done = false
+    var keep_going = false    # if true, we continue dispatch event if done == true (for mqtt_data)
+
+    if event_type == 'mqtt_data'
+      keep_going = true
+    end
+
+    if event_type=='cmd' return self.exec_cmd(cmd, idx, payload)
+    elif event_type=='tele' return self.exec_tele(payload)
+    elif event_type=='rule' return self.exec_rules(payload, bool(idx))
+    elif event_type=='gc' return self.gc()
+    elif self._drivers
+      var i = 0
+      while i < size(self._drivers)
+        var d = self._drivers[i]
+        var f = introspect.get(d, event_type)   # try to match a function or method with the same name
+        if type(f) == 'function'
+          try
+            done = f(d, cmd, idx, payload, raw) || done
+            if done && !keep_going   break end
+          except .. as e,m
+            print(format("BRY: Exception> '%s' - %s", e, m))
+            if self._debug_present
+              import debug
+              debug.traceback()
+            end
+          end
+        end
+        i += 1
+      end
+    end
+
+    # save persist
+    if event_type=='save_before_restart'
+      import persist
+      persist.save()
+    end
+
+    return done
+  end
+
 
 end
 
