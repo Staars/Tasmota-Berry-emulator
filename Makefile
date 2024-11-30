@@ -9,8 +9,8 @@ LFLAGS      =
 PREFIX      = /usr/local
 BINDIR      = $(PREFIX)/bin
 
-INCPATH     = src default re1.5 tasmota_env
-SRCPATH     = src default re1.5 tasmota_env
+INCPATH     = src default re1.5 emu_src
+SRCPATH     = src default re1.5 emu_src
 GENERATE    = generate
 CONFIG      = default/berry_conf.h
 COC         = tools/coc/coc
