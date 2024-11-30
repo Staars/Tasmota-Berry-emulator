@@ -392,6 +392,8 @@ int main(void)
     be_writestring(repl_prelude);
     berry_paths(vm);
     tasmota_emulator_init(vm);
+    doscript(vm, "/env.be", 0);
+    be_writestring("Tasmota emulator running ...");
     if (be_repl(vm, get_line, free_line) == -BE_MALLOC_FAIL) {
         be_writestring("error: memory allocation failed.\n");
     }
