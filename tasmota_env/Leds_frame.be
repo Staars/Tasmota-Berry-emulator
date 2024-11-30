@@ -59,7 +59,7 @@ class Leds_frame : bytes
         var src_r = (src_argb >> 16) & 0xFF
         var src_g = (src_argb >>  8) & 0xFF
         var src_b = (src_argb      ) & 0xFF
-        dest_buf[i * 3 + 1] = src_g # change for tasmota emulator
+        dest_buf[i * 3 + 1] = src_g # change for tasmota emulator from grb to rgb
         dest_buf[i * 3 + 0] = src_r # change for tasmota emulator
         dest_buf[i * 3 + 2] = src_b
         i += 1
@@ -67,7 +67,7 @@ class Leds_frame : bytes
     var now = tasmota.millis()
     # tasmota.log(f'{{"t":{now:5i},"buf":"{global._strip.pixels_buffer().tohex()}"}}\n')
     # output for the Tasmota emulator
-    tasmota.led_buffer(f'{global._strip.pixels_buffer().tohex()}')
+    tasmota.led_buffer(f'{dest_buf.tohex()}')
     end
   end
 

@@ -209,11 +209,12 @@
             }
 
             function drawLED(msg){
+                // console.log(msg);
+                // return;
                 for (let i = 0; i < msg.length; i+=6) {
                         led_canvas_ctx.fillStyle = `#${msg.substring(i,i+6)}`;
-                        // led_canvas_ctx.fillStyle = `#eeeeee`;
-                        led_canvas_ctx.fillRect((i/6) * 25, 0, 25, 25);
-                        console.log(msg.substring(i,i+6));
+                        led_canvas_ctx.fillRect((i/6) * 25 + 1 , 1, 23, 23);
+                        //console.log(msg.substring(i,i+6));
                 }
             }
 
@@ -222,7 +223,7 @@
                     new Promise((resolve) => setTimeout(resolve, delay));
                 while (!readline) await waitms(10);
                 var prompt = readline;
-                prompt += " ";
+                prompt += "z"; //to investigate, just had to add some random char here
                 readline = null;
                 console.log("okay:", prompt);
                 return prompt;
