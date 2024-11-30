@@ -1,8 +1,11 @@
 env = module("env")
 
-import sys
-sys.path().push('./tasmota_env')
-sys.path().push('./tasmota')
+(def ()
+  import sys
+  var path = sys.path()
+  path.push('./tasmota_env')
+  path.push('./tasmota')
+end)()      # last `()` calls the anonymous function immediately
 
 # import all Tasmota emulator stuff to be global
 import global
