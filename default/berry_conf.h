@@ -33,7 +33,7 @@
 #ifdef TASMOTA
 #define BE_INTGER_TYPE                  1           // use long int = uint32_t
 #else
-#define BE_INTGER_TYPE                  0
+#define BE_INTGER_TYPE                  1
 #endif
 
 /* Macro: BE_USE_SINGLE_FLOAT
