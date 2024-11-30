@@ -361,7 +361,8 @@ static const char *module_paths[] = {
 #else
 #define BERRY_ROOT "/usr/local"
 static const char *module_paths[] = {
-    BERRY_ROOT "/lib/berry/packages",
+    "/tasmota_env",
+    "/tasmota",
 };
 #endif
 
@@ -389,6 +390,7 @@ int main(void)
 {
     bvm *vm = be_vm_new(); /* create a virtual machine instance */
     be_writestring(repl_prelude);
+    berry_paths(vm);
     tasmota_emulator_init(vm);
     if (be_repl(vm, get_line, free_line) == -BE_MALLOC_FAIL) {
         be_writestring("error: memory allocation failed.\n");
