@@ -209,13 +209,27 @@
             }
 
             function drawLED(msg){
-                // console.log(msg);
-                // return;
-                for (let i = 0; i < msg.length; i+=6) {
-                        led_canvas_ctx.fillStyle = `#${msg.substring(i,i+6)}`;
-                        led_canvas_ctx.fillRect((i/6) * 25 + 1 , 1, 23, 23);
-                        //console.log(msg.substring(i,i+6));
+                let leds_left = msg.length/6
+                var rows = Math.ceil(msg.length/32);
+                var left2right = true;
+                const width = led_canvas.width - 25;
+                for(let row = 0; row < rows; row += 1){
+                    for (let i = 0; i < 32; i += 1) {
+                        if(leds_left == 0){
+                            return;
+                        }
+                        led_canvas_ctx.fillStyle = `#${msg.substring((i+(row*32)) * 6,((i+(row*32))*6)+6)}`;
+                        if(left2right){
+                            led_canvas_ctx.fillRect((i * 25) + 1 , (row * 25) + 1, 23, 23);
+                        } else {
+                            led_canvas_ctx.fillRect((width - (i * 25) ) + 1 , (row * 25) + 1, 23, 23);
+                        }
+                        leds_left -= 1;
+                    }
+                    left2right = !left2right;
                 }
+                // return;
+
             }
 
             async function waitLineText() {
@@ -386,7 +400,7 @@
                 <h3>Berry in a Browser</h3>
                 <h2>Tasmota emulator</h2>
             </div>
-            <canvas id="canvas" width="800" height="30"></canvas>
+            <canvas id="canvas" width="800" height="150"></canvas>
             <style>
                 .br1 {
                     border-left: dotted 2px #860;
