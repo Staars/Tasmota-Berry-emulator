@@ -212,6 +212,7 @@
                 let leds_left = msg.length/6
                 var rows = Math.ceil(msg.length/32);
                 var left2right = true;
+                led_canvas.height = rows * 25 / 6;
                 const width = led_canvas.width - 25;
                 for(let row = 0; row < rows; row += 1){
                     for (let i = 0; i < 32; i += 1) {
@@ -237,7 +238,7 @@
                     new Promise((resolve) => setTimeout(resolve, delay));
                 while (!readline) await waitms(10);
                 var prompt = readline;
-                prompt += "z"; //to investigate, just had to add some random char here
+                prompt += "\n"; //to investigate, just had to add some random char here
                 readline = null;
                 console.log("okay:", prompt);
                 return prompt;
@@ -400,7 +401,7 @@
                 <h3>Berry in a Browser</h3>
                 <h2>Tasmota emulator</h2>
             </div>
-            <canvas id="canvas" width="800" height="150"></canvas>
+            <canvas id="canvas" width="800" height="150" style="display: block; margin-left: auto; margin-right: auto;"></canvas>
             <style>
                 .br1 {
                     border-left: dotted 2px #860;

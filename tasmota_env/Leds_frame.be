@@ -67,7 +67,7 @@ class Leds_frame : bytes
     var now = tasmota.millis()
     # tasmota.log(f'{{"t":{now:5i},"buf":"{global._strip.pixels_buffer().tohex()}"}}\n')
     # output for the Tasmota emulator
-    tasmota.led_buffer(f'{dest_buf.tohex()}')
+    # tasmota.led_buffer(f'{dest_buf.tohex()}')
     end
   end
 

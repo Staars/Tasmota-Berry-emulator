@@ -80,6 +80,7 @@ class Leds
   def begin()
   end
   def show()
+    tasmota.led_buffer(f'{self._buf.tohex()}')
   end
   def can_show()
     return true
@@ -93,7 +94,8 @@ class Leds
     return self._buf
   end
   def pixel_size()
-    return self.call_native(7)
+    return size(self._buf)/self.leds
+    # return self.call_native(7)
   end
   def pixel_count()
     return self.leds
@@ -119,10 +121,21 @@ class Leds
   end
   def set_pixel_color(idx, col, bri)
     if (bri == nil)   bri = self.bri    end
-    self.call_native(10, idx, self.to_gamma(col, bri))
+    var rgb = self.to_gamma(col, bri)
+    var buf = self._buf
+    var r = (rgb >> 16) & 0xFF
+    var g = (rgb >>  8) & 0xFF
+    var b = (rgb      ) & 0xFF
+
+    buf[idx * 3 + 0] = r
+    buf[idx * 3 + 1] = g
+    buf[idx * 3 + 2] = b
+    # self.call_native(10, idx, self.to_gamma(col, bri))
   end
   def get_pixel_color(idx)
-    return self.call_native(11, idx)
+    var buf = self._buf
+    return buf[idx * 3 + 0] << 16 | buf[idx * 3 + 1] << 8 | buf[idx * 3 + 2]
+    #return self.call_native(11, idx)
   end
 
   # apply gamma and bri
@@ -186,7 +199,8 @@ class Leds
       end
       def clear_to(col, bri)
         if (bri == nil)   bri = self.bri    end
-        self.strip.call_native(9, self.strip.to_gamma(col, bri), self.offset, self.leds)
+        # self.strip.call_native(9, self.strip.to_gamma(col, bri), self.offset, self.leds)
+        self.strip.clear_to(col, bri)
         # var i = 0
         # while i < self.leds
         #   self.strip.set_pixel_color(i + self.offset, col, bri)
@@ -273,7 +287,8 @@ class Leds
       end
       def clear_to(col, bri)
         if (bri == nil)   bri = self.bri    end
-        self.strip.call_native(9, self.strip.to_gamma(col, bri), self.offset, self.w * self.h)
+        self.strip.clear_to(col, bri)
+        #self.strip.call_native(9, self.strip.to_gamma(col, bri), self.offset, self.w * self.h)
       end
       def set_pixel_color(idx, col, bri)
         if (bri == nil)   bri = self.bri    end

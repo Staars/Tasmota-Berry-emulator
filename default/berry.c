@@ -170,7 +170,7 @@ static char* get_line(const char *prompt)
     }
     return line;
 #elif defined(__EMSCRIPTEN__)
-    static char buffer[1000];
+    static char buffer[10000];
     be_writebuffer(prompt, strlen(prompt));
     if (be_readstring(buffer, sizeof(buffer))) {
         buffer[strlen(buffer) - 1] = '\0';
