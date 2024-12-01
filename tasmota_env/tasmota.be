@@ -3,13 +3,13 @@
 import global
 
 class Tasmota : tasmota_wasm
-  var _millis           # emulate millis from Tasmota
+  # var _millis           # emulate millis from Tasmota
   var _fl               # fast_loop
   var _drivers
 
-  def init()
-    self._millis = 1
-  end
+  # def init()
+  #   self._millis = 1
+  # end
 
   static def scale_uint(inum, ifrom_min, ifrom_max, ito_min, ito_max)
     if (ifrom_min >= ifrom_max)
@@ -199,13 +199,14 @@ class Tasmota : tasmota_wasm
 
   def event(event_type, cmd, idx, payload, raw)
     import introspect
-    if event_type=='every_50ms'
-      self.run_deferred()
-    end  #- first run deferred events -#
+    # next section does beak emulation for yet unknown reason
+    # if event_type=='every_50ms'
+    #   self.run_deferred()
+    # end  #- first run deferred events -#
 
-    if event_type=='every_250ms'
-      self.run_cron()
-    end
+    # if event_type=='every_250ms'
+    #   self.run_cron()
+    # end
 
     var done = false
     var keep_going = false    # if true, we continue dispatch event if done == true (for mqtt_data)

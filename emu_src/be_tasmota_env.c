@@ -118,6 +118,7 @@ void tasmota_run_loop(void *userData){
   if(now%1000 == 0){
     callBerryEventDispatcher(("every_second"), nullptr, 0, nullptr,0);
   }
+  // emscripten_log(EM_LOG_CONSOLE, "%u",now);
   now += 5;
 }
 
