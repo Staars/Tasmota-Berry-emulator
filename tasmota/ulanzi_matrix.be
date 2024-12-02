@@ -6,6 +6,7 @@
 class MATRIX_ANIM
   var strip
   var positions
+  var speeds
 
   def init()
     import Leds
@@ -14,6 +15,7 @@ class MATRIX_ANIM
     self.strip.set_bri(255)
     self.strip.clear()
     self.positions = []
+    self.speeds = []
     print("Ulanzi Matrix Screensaver")
     for i:0..31
       var y = (math.rand()%10) - 3
@@ -23,6 +25,8 @@ class MATRIX_ANIM
         end
       end
       self.positions.push(y)
+      var speed = (math.rand()%3) + 1
+      self.speeds.push(speed)
     end
     tasmota.add_driver(self)
   end
@@ -40,41 +44,51 @@ class MATRIX_ANIM
   end
 
   def set_pixel_color(pos,color)
-    if pos > 0 &&  pos < 256
+    if pos >= 0 &&  pos < 256
       self.strip.set_pixel_color(pos,color)
     end
   end
 
-  def every_100ms()
+  def every_50ms()
+    import math
     var x = 0
-    for y:self.positions
-      if y == 9
-        self.positions[x] = -3
+    while x < 32
+      y = self.positions[x]
+
+      var speed = self.speeds[x]
+      if speed > 0
+        self.speeds[x] = speed - 1
       else
-        var pos = self.getPos(x,y-1)
-        self.set_pixel_color(pos,0)
+      self.speeds[x] = (math.rand()%3) + 1
 
-        var color = 255 << 8
-        pos = self.getPos(x,y)
-        self.set_pixel_color(pos,color)
+        if y == 9
+          self.positions[x] = -2
+        else
+          var pos = self.getPos(x,y-1)
+          self.set_pixel_color(pos,0)
 
-        y += 1
-        color = 200 << 8
-        pos = self.getPos(x,y)
-        self.set_pixel_color(pos,color)
+          var color = 255 << 8
+          pos = self.getPos(x,y)
+          self.set_pixel_color(pos,color)
 
-        y += 1
-        color = 150 << 8
-        pos = self.getPos(x,y)
+          y += 1
+          color = 200 << 8
+          pos = self.getPos(x,y)
+          self.set_pixel_color(pos,color)
 
-        self.set_pixel_color(pos,color)
+          y += 1
+          color = 150 << 8
+          pos = self.getPos(x,y)
 
-        y += 1
-        color = 100 << 8
-        pos = self.getPos(x,y)
-        self.set_pixel_color(pos,color)
+          self.set_pixel_color(pos,color)
 
-        self.positions[x] = y - 2
+          y += 1
+          color = 100 << 8
+          pos = self.getPos(x,y)
+          self.set_pixel_color(pos,color)
+
+          self.positions[x] = y - 2
+        end
       end
       x += 1
     end

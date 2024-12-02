@@ -59,7 +59,7 @@
 
 #if defined(__EMSCRIPTEN__)
     #undef COMPILER
-    #define COMPILER  "EMCC"
+    #define COMPILER  "EMCC " __VERSION__ 
 #endif
 
 #if BE_DEBUG
@@ -111,6 +111,7 @@ struct arg_opts {
     const char *dst;
 };
 
+#if !defined(__EMSCRIPTEN__)
 /* check if the character is a letter */
 static int is_letter(int ch)
 {
@@ -159,6 +160,7 @@ static int arg_getopt(struct arg_opts *opt, int argc, char *argv[])
     }
     return 0;
 }
+#endif // __EMSCRIPTEN__
 
 /* portable readline function package */
 static char* get_line(const char *prompt)
@@ -233,6 +235,7 @@ static int doscript(bvm *vm, const char *name, int args)
     return handle_result(vm, res);
 }
 
+#if !defined(__EMSCRIPTEN__)
 /* load a Berry script string or file and execute
  * args: the enabled options mask
  * */
@@ -360,6 +363,7 @@ static int analysis_args(bvm *vm, int argc, char *argv[])
     }
     return load_script(vm, argc, argv, args);
 }
+#endif // __EMSCRIPTEN__
 
 #if defined(_WIN32)
 #define BERRY_ROOT "\\Windows\\system32"
