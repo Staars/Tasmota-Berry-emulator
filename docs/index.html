@@ -236,7 +236,7 @@
             async function waitLineText() {
                 const waitms = (delay) =>
                     new Promise((resolve) => setTimeout(resolve, delay));
-                while (!readline) await waitms(10);
+                while (!readline) await waitms(1);
                 var prompt = readline;
                 prompt += "\n"; //to investigate, just had to add some random char here
                 readline = null;
@@ -250,7 +250,7 @@
                         l(null, readbuffer);
                         readbuffer = "";
                     } else {
-                        readbuffer += text.replace("\n", " ");
+                        readbuffer += text;
                     }
                 }
             }
@@ -433,7 +433,7 @@
                     padding: 2px;
                     background: #222;
                     color: #fb1;
-                    /* white-space: pre; */
+                    white-space: pre;
                     padding: 2px 5px 2px 5px;
                 }
 
@@ -454,7 +454,7 @@
                 cols="340"
                 wrap="off"
             >
-                <div class="br1">
+                <div class="br1" style="white-space:collapse;">
                     Welcome to the Berry Scripting console. Check the
                     <a
                         href="https://tasmota.github.io/docs/Berry/"
