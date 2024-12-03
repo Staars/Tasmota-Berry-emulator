@@ -59,7 +59,7 @@ class MATRIX_ANIM
       if speed > 0
         self.speeds[x] = speed - 1
       else
-      self.speeds[x] = (math.rand()%3) + 1
+      self.speeds[x] = (math.rand()%5)
 
         if y == 9
           self.positions[x] = -2
