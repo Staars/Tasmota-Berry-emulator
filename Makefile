@@ -48,14 +48,14 @@ INCFLAGS = $(foreach dir, $(INCPATH), -I"$(dir)")
 
 all: $(TARGET)
 
-web: CFLAGS    = -Wall -Wextra -std=c99 -Wno-empty-translation-unit -O3 -Wno-zero-length-array
+web: CFLAGS    = -Wall -Wextra -std=gnu99 -Wno-empty-translation-unit -O3 -Wno-zero-length-array
 web: LIBS      = -lm -ldl
 web: LFLAGS.   =
 web: TARGET    = berry.js
 web: CC        = emcc
 web: EMBED_FILES    = --preload-file tasmota_env --preload-file tasmota  --preload-file env.be@/env.be
 web: LFLAGS    = -s WASM=1 -s ASYNCIFY \
-            	 -s 'ASYNCIFY_IMPORTS=["_js_readbuffer", "_js_writebuffer", "_js_writeEmulatorBuffer"]'\
+            	 -s 'ASYNCIFY_IMPORTS=["_js_readbuffer"]'\
 				 -O3 -s SINGLE_FILE=1
 
 web: all
