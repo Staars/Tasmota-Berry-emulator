@@ -409,9 +409,9 @@ int main(void)
     if (be_repl(vm, get_line, free_line) == -BE_MALLOC_FAIL) {
         be_writestring("error: memory allocation failed.\n");
     }
-    //berry_paths(vm);
+    // emscripten_sleep(0);
+    // emscripten_exit_with_live_runtime();
     be_vm_delete(vm); /* free all objects and vm */
-    emscripten_exit_with_live_runtime();
     return 0;
 }
 #endif

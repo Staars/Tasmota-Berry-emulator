@@ -82,7 +82,7 @@ int32_t callBerryEventDispatcher(const char *type, const char *cmd, int32_t idx,
   return ret;
 }
 
-void callBerryFastLoop(bbool every_5ms) {
+void callBerryFastLoop() {
 
   bvm *vm = berry.vm;
   if (nullptr == vm) { return; }
@@ -103,9 +103,9 @@ void callBerryFastLoop(bbool every_5ms) {
   be_pop(vm, be_top(vm));   // clean
 }
 
-void tasmota_run_loop(void *userData){
+void tasmota_run_loop([[maybe_unused]] void *userData){
   static uint32_t now = 0;
-  callBerryFastLoop(btrue);
+  callBerryFastLoop();
   if(now%50 == 0){
     callBerryEventDispatcher(("every_50ms"), nullptr, 0, nullptr,0);
   }

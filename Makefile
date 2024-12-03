@@ -1,4 +1,4 @@
-CFLAGS      = -Wall -Wextra -std=c99 -O3 -Wno-zero-length-array -Wno-empty-translation-unit
+CFLAGS      = -Wall -Wextra -std=c99 -O2 -Wno-zero-length-array -Wno-empty-translation-unit
 DEBUG_FLAGS = -O0 -g -DBE_DEBUG
 TEST_FLAGS  = $(DEBUG_FLAGS) --coverage -fno-omit-frame-pointer -fsanitize=address -fsanitize=undefined
 LIBS        = -lm
@@ -48,15 +48,16 @@ INCFLAGS = $(foreach dir, $(INCPATH), -I"$(dir)")
 
 all: $(TARGET)
 
-web: CFLAGS    = -Wall -Wextra -std=c99 -Wno-empty-translation-unit -O2 -Wno-zero-length-array
+web: CFLAGS    = -Wall -Wextra -std=c99 -Wno-empty-translation-unit -O3 -Wno-zero-length-array
 web: LIBS      = -lm -ldl
 web: LFLAGS.   =
 web: TARGET    = berry.js
 web: CC        = emcc
 web: EMBED_FILES    = --preload-file tasmota_env --preload-file tasmota  --preload-file env.be@/env.be
-web: LFLAGS    = -s WASM=0 -s ASYNCIFY \
+web: LFLAGS    = -s WASM=1 -s ASYNCIFY \
             	 -s 'ASYNCIFY_IMPORTS=["_js_readbuffer", "_js_writebuffer", "_js_writeEmulatorBuffer"]'\
-				 -s STRICT
+				 -O3 -s SINGLE_FILE=1
+
 web: all
 
 debug: CFLAGS += $(DEBUG_FLAGS)

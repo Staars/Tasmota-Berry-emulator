@@ -188,9 +188,10 @@
                             console.log(`… file[${i}].name = ${file.name}`);
                             if (file) {
                                 let reader = new FileReader();
-                                reader.readAsDataURL(file);
-                                const u8_view = new Uint8Array(reader.result);
-                                FS.writeFile(file.name, u8_view);
+                                reader.onload = (e) => {
+                                FS.writeFile(file.name, e.target.result);
+                                };
+                                reader.readAsText(file);
                             }
                         }
                     });
@@ -200,9 +201,10 @@
                         console.log(`… file[${i}].name = ${file.name}`);
                         if (file) {
                             let reader = new FileReader();
-                            reader.readAsDataURL(file);
-                            const u8_view = new Uint8Array(reader.result);
-                            FS.writeFile(file.name, u8_view);
+                            reader.onload = (e) => {
+                            FS.writeFile(file.name, e.target.result);
+                            };
+                            reader.readAsText(file);
                         }
                     });
                 }
@@ -236,7 +238,7 @@
             async function waitLineText() {
                 const waitms = (delay) =>
                     new Promise((resolve) => setTimeout(resolve, delay));
-                while (!readline) await waitms(1);
+                while (!readline) await waitms(0);
                 var prompt = readline;
                 prompt += "\n"; //to investigate, just had to add some random char here
                 readline = null;
