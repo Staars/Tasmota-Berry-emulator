@@ -1,0 +1,2387 @@
+# import all Tasmota emulator stuff to be global
+import global
+import load
+import gpio
+import ls
+
+global.tasmota = tasmota_wasm()
+load("tasmota_env/tasmota.be")
+
+load("tasmota_env/classes_for_emulation.be")
+#
+# Example for M5Stack Led Matrix
+# 5 x 5 WS2812
+#
+import animate
+
+var strip = Leds(5 * 5, gpio.pin(gpio.WS2812, 0))
+var anim = animate.core(strip)
+global._strip.set_bri(255)          # set max brightness
+global._strip.set_gamma(false)      # disable gamma
+anim.set_back_color(0x000000)
+var pulse = animate.pulse(0xFF0000, 3, 2)
+var osc1 = animate.oscillator(0, 23, 3000, animate.TRIANGLE)
+osc1.set_cb(pulse, pulse.set_pos)
+
+anim.start()
+#
+# Example for M5Stack Led Matrix
+# 5 x 5 WS2812
+#
+import animate
+
+var strip = Leds(5 * 5, gpio.pin(gpio.WS2812, 0))
+var anim = animate.core(strip)
+global._strip.set_bri(255)          # set max brightness
+global._strip.set_gamma(false)      # disable gamma
+anim.set_back_color(0x2222AA)
+var pulse = animate.pulse(0xFF4444, 2, 1)
+var osc1 = animate.oscillator(-3, 26, 5000, animate.COSINE)
+osc1.set_cb(pulse, pulse.set_pos)
+
+# animate color of pulse
+var palette = animate.palette(animate.PALETTE_STANDARD_TAG, 30000)
+palette.set_cb(pulse, pulse.set_color)
+
+anim.start()
+#
+print("All good")#-
+ - LED driver for Ulanzi clock written in Berry
+ - very simple animation in the style of Matrix
+-#
+
+class MATRIX_ANIM
+  var strip
+  var positions
+  var speeds
+
+  def init()
+    import Leds
+    import math
+    self.strip = Leds(32*8, gpio.pin(gpio.WS2812, 0))
+    self.strip.set_bri(255)
+    self.strip.clear()
+    self.positions = []
+    self.speeds = []
+    print("Ulanzi Matrix Screensaver")
+    for i:0..31
+      var y = (math.rand()%10) - 3
+      if i > 0
+        if y == self.positions[i-1]
+          y += 3
+        end
+      end
+      self.positions.push(y)
+      var speed = (math.rand()%3) + 1
+      self.speeds.push(speed)
+    end
+    tasmota.add_driver(self)
+  end
+
+  def deinit()
+    self.strip.clear()
+    tasmota.remove_driver(self)
+  end
+
+  def getPos(x,y)
+    if y & 0x1
+       return y * 32 + (31 - x) # y * xMax + (xMax - 1 - x) 
+    end
+    return y * 32 + x # y * xMax + x
+  end
+
+  def set_pixel_color(pos,color)
+    if pos >= 0 &&  pos < 256
+      self.strip.set_pixel_color(pos,color)
+    end
+  end
+
+  def every_50ms()
+    import math
+    var x = 0
+    while x < 32
+      y = self.positions[x]
+
+      var speed = self.speeds[x]
+      if speed > 0
+        self.speeds[x] = speed - 1
+      else
+      self.speeds[x] = (math.rand()%5)
+
+        if y == 9
+          self.positions[x] = -2
+        else
+          var pos = self.getPos(x,y-1)
+          self.set_pixel_color(pos,0)
+
+          var color = 255 << 8
+          pos = self.getPos(x,y)
+          self.set_pixel_color(pos,color)
+
+          y += 1
+          color = 200 << 8
+          pos = self.getPos(x,y)
+          self.set_pixel_color(pos,color)
+
+          y += 1
+          color = 150 << 8
+          pos = self.getPos(x,y)
+
+          self.set_pixel_color(pos,color)
+
+          y += 1
+          color = 100 << 8
+          pos = self.getPos(x,y)
+          self.set_pixel_color(pos,color)
+
+          self.positions[x] = y - 2
+        end
+      end
+      x += 1
+    end
+    self.strip.show()
+  end
+end
+
+var a =  MATRIX_ANIM()# Leds
+
+
+class Leds
+  static var WS2812_GRB = 1
+  static var SK6812_GRBW = 2
+
+  var gamma       # if true, apply gamma (true is default)
+  var leds        # number of leds
+  var bri         # implicit brightness for this led strip (0..255, default is 50% = 127)
+
+  var _buf
+  var _typ
+  # leds:int = number of leds of the strip
+  # gpio:int (optional) = GPIO for NeoPixel. If not specified, takes the WS2812 gpio
+  # typ:int (optional) = Type of LED, defaults to WS2812 RGB
+  # rmt:int (optional) = RMT hardware channel to use, leave default unless you have a good reason 
+  def init(leds, gpio_phy, typ, rmt)   # rmt is optional
+    self.gamma = true     # gamma is enabled by default, it should be disabled explicitly if needed
+    self.leds = int(leds)
+    self.bri = 127
+
+    # fake buffer
+    self._buf = bytes(leds).resize(leds * 3)
+    self._typ = typ
+    # if no GPIO, abort
+    # if gpio_phy == nil
+    #   raise "valuer_error", "no GPIO specified for neopixelbus"
+    # end
+
+    # initialize the structure
+    self.ctor(self.leds, gpio_phy, typ, rmt)
+
+    # if self._p == nil raise "internal_error", "couldn't not initialize noepixelbus" end
+
+    # call begin
+    self.begin()
+
+    # emulator-specific
+    global._strip = self    # record the current strip object
+
+  end
+
+  # set bri (0..255)
+  def set_bri(bri)
+    if (bri < 0)    bri = 0   end
+    if (bri > 255)  bri = 255 end
+    self.bri = bri
+  end
+  def get_bri()
+    return self.bri
+  end
+
+  def set_gamma(gamma)
+    self.gamma = bool(gamma)
+  end
+  def get_gamma()
+    return self.gamma
+  end
+
+  # assign RMT
+  static def assign_rmt(gpio_phy)
+  end
+
+  def clear()
+    self.clear_to(0x000000)
+    self.show()
+  end
+
+  def ctor(leds, gpio_phy, typ, rmt)
+    if typ == nil
+      typ = self.WS2812_GRB
+    end
+    self._typ = typ
+    # if rmt == nil
+    #   rmt = self.assign_rmt(gpio_phy)
+    # end
+    # self.call_native(0, leds, gpio_phy, typ, rmt)
+  end
+  def begin()
+  end
+  def show()
+    tasmota.led_buffer(f'{self._buf.tohex()}')
+  end
+  def can_show()
+    return true
+  end
+  def is_dirty()
+    return true
+  end
+  def dirty()
+  end
+  def pixels_buffer(old_buf)
+    return self._buf
+  end
+  def pixel_size()
+    return size(self._buf)/self.leds
+    # return self.call_native(7)
+  end
+  def pixel_count()
+    return self.leds
+    # return self.call_native(8)
+  end
+  def pixel_offset()
+    return 0
+  end
+  def clear_to(col, bri)
+    if (bri == nil)   bri = self.bri    end
+    var rgb = self.to_gamma(col, bri)
+    var buf = self._buf
+    var r = (rgb >> 16) & 0xFF
+    var g = (rgb >>  8) & 0xFF
+    var b = (rgb      ) & 0xFF
+    var i = 0
+    while i < self.leds
+      buf[i * 3 + 0] = r
+      buf[i * 3 + 1] = g
+      buf[i * 3 + 2] = b
+      i += 1
+    end
+  end
+  def set_pixel_color(idx, col, bri)
+    if (bri == nil)   bri = self.bri    end
+    var rgb = self.to_gamma(col, bri)
+    var buf = self._buf
+    var r = (rgb >> 16) & 0xFF
+    var g = (rgb >>  8) & 0xFF
+    var b = (rgb      ) & 0xFF
+
+    buf[idx * 3 + 0] = r
+    buf[idx * 3 + 1] = g
+    buf[idx * 3 + 2] = b
+    # self.call_native(10, idx, self.to_gamma(col, bri))
+  end
+  def get_pixel_color(idx)
+    var buf = self._buf
+    return buf[idx * 3 + 0] << 16 | buf[idx * 3 + 1] << 8 | buf[idx * 3 + 2]
+    #return self.call_native(11, idx)
+  end
+
+  # apply gamma and bri
+  def to_gamma(rgb, bri255)
+    if (bri255 == nil)   bri255 = self.bri    end
+    return self.apply_bri_gamma(rgb, bri255, self.gamma)
+  end
+
+  # `segment`
+  # create a new `strip` object that maps a part of the current strip
+  def create_segment(offset, leds)
+    if int(offset) + int(leds) > self.leds || offset < 0 || leds < 0
+      raise "value_error", "out of range"
+    end
+
+    # inner class
+    class Leds_segment
+      var strip
+      var offset, leds
+    
+      def init(strip, offset, leds)
+        self.strip = strip
+        self.offset = int(offset)
+        self.leds = int(leds)
+      end
+    
+      def clear()
+        self.clear_to(0x000000)
+        self.show()
+      end
+    
+      def begin()
+        # do nothing, already being handled by physical strip
+      end
+      def show(force)
+        # don't trigger on segment, you will need to trigger on full strip instead
+        if bool(force) || (self.offset == 0 && self.leds == self.strip.leds)
+          self.strip.show()
+        end
+      end
+      def can_show()
+        return self.strip.can_show()
+      end
+      def is_dirty()
+        return self.strip.is_dirty()
+      end
+      def dirty()
+        self.strip.dirty()
+      end
+      def pixels_buffer()
+        return nil
+      end
+      def pixel_size()
+        return self.strip.pixel_size()
+      end
+      def pixel_offset()
+        return self.offset
+      end
+      def pixel_count()
+        return self.leds
+      end
+      def clear_to(col, bri)
+        if (bri == nil)   bri = self.bri    end
+        # self.strip.call_native(9, self.strip.to_gamma(col, bri), self.offset, self.leds)
+        self.strip.clear_to(col, bri)
+        # var i = 0
+        # while i < self.leds
+        #   self.strip.set_pixel_color(i + self.offset, col, bri)
+        #   i += 1
+        # end
+      end
+      def set_pixel_color(idx, col, bri)
+        if (bri == nil)   bri = self.bri    end
+        self.strip.set_pixel_color(idx + self.offset, col, bri)
+      end
+      def get_pixel_color(idx)
+        return self.strip.get_pixel_color(idx + self.offseta)
+      end
+    end
+
+    return Leds_segment(self, offset, leds)
+
+  end
+
+  def create_matrix(w, h, offset)
+    offset = int(offset)
+    w = int(w)
+    h = int(h)
+    if offset == nil   offset = 0 end
+    if w * h + offset > self.leds || h < 0 || w < 0 || offset < 0
+      raise "value_error", "out of range"
+    end
+
+    # inner class
+    class Leds_matrix
+      var strip
+      var offset
+      var h, w
+      var alternate     # are rows in alternate mode (even/odd are reversed)
+      var pix_buffer
+      var pix_size
+    
+      def init(strip, w, h, offset)
+        self.strip = strip
+        self.offset = offset
+        self.h = h
+        self.w = w
+        self.alternate = false
+
+        self.pix_buffer = self.strip.pixels_buffer()
+        self.pix_size = self.strip.pixel_size()
+      end
+    
+      def clear()
+        self.clear_to(0x000000)
+        self.show()
+      end
+    
+      def begin()
+        # do nothing, already being handled by physical strip
+      end
+      def show(force)
+        # don't trigger on segment, you will need to trigger on full strip instead
+        if bool(force) || (self.offset == 0 && self.w * self.h == self.strip.leds)
+          self.strip.show()
+          self.pix_buffer = self.strip.pixels_buffer(self.pix_buffer)  # update buffer after show()
+        end
+      end
+      def can_show()
+        return self.strip.can_show()
+      end
+      def is_dirty()
+        return self.strip.is_dirty()
+      end
+      def dirty()
+        self.strip.dirty()
+      end
+      def pixels_buffer()
+        return self.strip.pixels_buffer()
+      end
+      def pixel_size()
+        return self.pix_size
+      end
+      def pixel_count()
+        return self.w * self.h
+      end
+      def pixel_offset()
+        return self.offset
+      end
+      def clear_to(col, bri)
+        if (bri == nil)   bri = self.bri    end
+        self.strip.clear_to(col, bri)
+        #self.strip.call_native(9, self.strip.to_gamma(col, bri), self.offset, self.w * self.h)
+      end
+      def set_pixel_color(idx, col, bri)
+        if (bri == nil)   bri = self.bri    end
+        self.strip.set_pixel_color(idx + self.offset, col, bri)
+      end
+      def get_pixel_color(idx)
+        return self.strip.get_pixel_color(idx + self.offseta)
+      end
+
+      # setbytes(row, bytes)
+      # sets the raw bytes for `row`, copying at most 3 or 4 x col  bytes
+      def set_bytes(row, buf, offset, len)
+        var h_bytes = self.h * self.pix_size
+        if (len > h_bytes)  len = h_bytes end
+        var offset_in_matrix = (self.offset + row) * h_bytes
+        self.pix_buffer.setbytes(offset_in_matrix, buf, offset, len)
+      end
+
+      # Leds_matrix specific
+      def set_alternate(alt)
+        self.alternate = alt
+      end
+      def get_alternate()
+        return self.alternate
+      end
+
+      def set_matrix_pixel_color(x, y, col, bri)
+        if (bri == nil)   bri = self.bri    end
+        if self.alternate && x % 2
+          # reversed line
+          self.strip.set_pixel_color(x * self.w + self.h - y - 1 + self.offset, col, bri)
+        else
+          self.strip.set_pixel_color(x * self.w + y + self.offset, col, bri)
+        end
+      end
+    end
+
+    return Leds_matrix(self, w, h, offset)
+
+  end
+
+  static def matrix(w, h, gpio, rmt)
+    var strip = Leds(w * h, gpio, rmt)
+    var matrix = strip.create_matrix(w, h, 0)
+    return matrix
+  end
+
+
+  static def blend_color(color_a, color_b, alpha)
+    var transparency = (color_b >> 24) & 0xFF
+    if (alpha != nil)
+      transparency = 255 - alpha
+    end
+    # remove any transparency
+    color_a = color_a & 0xFFFFFF
+    color_b = color_b & 0xFFFFFF
+
+    if (transparency == 0) #     // color_b is opaque, return color_b
+      return color_b
+    end
+    if (transparency >= 255) #{  // color_b is transparent, return color_a
+      return color_a
+    end
+    var r = tasmota.scale_uint(transparency, 0, 255, (color_b >> 16) & 0xFF, (color_a >> 16) & 0xFF)
+    var g = tasmota.scale_uint(transparency, 0, 255, (color_b >>  8) & 0xFF, (color_a >>  8) & 0xFF)
+    var b = tasmota.scale_uint(transparency, 0, 255, (color_b      ) & 0xFF, (color_a      ) & 0xFF)
+
+    var rgb = (r << 16) | (g << 8) | b
+    return rgb
+  end
+
+  static def apply_bri_gamma(color_a, bri255, gamma)
+    if (bri255 == nil)   bri255 = 255       end
+    if (bri255 == 0) return 0x000000     end              # if bri is zero, short-cut
+    var r = (color_a >> 16) & 0xFF
+    var g = (color_a >>  8) & 0xFF
+    var b = (color_a      ) & 0xFF
+
+    if (bri255 < 255)                # apply bri
+      r = tasmota.scale_uint(bri255, 0, 255, 0, r)
+      g = tasmota.scale_uint(bri255, 0, 255, 0, g)
+      b = tasmota.scale_uint(bri255, 0, 255, 0, b)
+    end
+
+    if gamma
+      import light_state
+      r = light_state.ledGamma8_8(r)
+      g = light_state.ledGamma8_8(g)
+      b = light_state.ledGamma8_8(b)
+    end
+    var rgb = (r << 16) | (g << 8) | b
+    return rgb
+  end
+  
+end
+
+return Leds
+# Leds_frame
+import Leds     # solve import
+
+class Leds_frame : bytes
+  var pixel_size
+
+  def init(pixels)
+    if (pixels < 0)   pixels = -pixels  end
+    self.pixel_size = pixels
+    super(self).init(pixels * (-4))
+  end
+
+  def item(i)
+    return self.get(i * 4, 4)
+  end
+
+  def setitem(i, v)
+    self.set(i * 4, v, 4)
+  end
+
+  def set_pixel(i, r, g, b, alpha)
+    if (alpha == nil)   alpha = 0   end
+    var color = ((alpha & 0xFF) << 24) | ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF)
+    self.setitem(i, color)
+  end
+
+  def fill_pixels(color)
+    var pixels_count = self.size() / 4
+    var idx = 0
+    while idx < pixels_count
+      self.set(idx * 4, color, 4)
+      idx += 1
+    end
+  end
+
+  static def blend(color_a, color_b, alpha)
+    var r = (color_a >> 16) & 0xFF
+    var g = (color_a >>  8) & 0xFF
+    var b = (color_a      ) & 0xFF
+    var r2 = (color_b >> 16) & 0xFF
+    var g2 = (color_b >>  8) & 0xFF
+    var b2 = (color_b      ) & 0xFF
+    var r3 = tasmota.scale_uint(alpha, 0, 255, r2, r)
+    var g3 = tasmota.scale_uint(alpha, 0, 255, g2, g)
+    var b3 = tasmota.scale_uint(alpha, 0, 255, b2, b)
+    var rgb = (r3 << 16) | (g3 << 8) | b3
+    return rgb
+  end
+
+  def paste_pixels(dest_buf, bri, gamma)
+    if (bri == nil)     bri = 255       end
+    if (gamma == nil)   gamma = false   end
+    var pixels_count = self.size() / 4
+    if (pixels_count > size(dest_buf) / 3)    pixels_count = size(dest_buf) / 3   end
+    if (pixels_count > 0)
+      var i = 0
+      while i < pixels_count
+        var src_argb = Leds.apply_bri_gamma(self.get(i * 4, 4), bri, gamma)
+        var src_r = (src_argb >> 16) & 0xFF
+        var src_g = (src_argb >>  8) & 0xFF
+        var src_b = (src_argb      ) & 0xFF
+        dest_buf[i * 3 + 1] = src_g # change for tasmota emulator from grb to rgb
+        dest_buf[i * 3 + 0] = src_r # change for tasmota emulator
+        dest_buf[i * 3 + 2] = src_b
+        i += 1
+      end
+    var now = tasmota.millis()
+    # tasmota.log(f'{{"t":{now:5i},"buf":"{global._strip.pixels_buffer().tohex()}"}}\n')
+    # output for the Tasmota emulator
+    # tasmota.led_buffer(f'{dest_buf.tohex()}')
+    end
+  end
+
+  def blend_pixels(fore)
+    var back = self
+    var dest = self
+    var dest_len = size(dest)
+    if (size(fore) < dest_len)    dest_len = size(fore)     end
+    if (size(back) < dest_len)    dest_len = size(back)     end
+    var pixels_count = dest_len / 4
+
+    if (pixels_count > 0)
+      var i = 0
+      while i < pixels_count
+        var back_argb = back.get(i * 4, 4)
+        var fore_argb = fore.get(i * 4, 4)
+        var fore_alpha = (fore_argb >> 24) & 0xFF
+        var dest_rgb_new = back_argb
+
+        if (fore_alpha == 0)          # {        // opaque layer, copy value from fore
+          dest_rgb_new = fore_argb
+        elif (fore_alpha == 255)      # {   // fore is transparent, use back
+          # // nothing to do, dest_rgb_new = back_argb above
+        else
+          var back_r = (back_argb >> 16) & 0xFF
+          var fore_r = (fore_argb >> 16) & 0xFF
+          var back_g = (back_argb >>  8) & 0xFF
+          var fore_g = (fore_argb >>  8) & 0xFF
+          var back_b = (back_argb      ) & 0xFF
+          var fore_b = (fore_argb      ) & 0xFF
+          var dest_r_new = tasmota.scale_uint(fore_alpha, 0, 255, fore_r, back_r)
+          var dest_g_new = tasmota.scale_uint(fore_alpha, 0, 255, fore_g, back_g)
+          var dest_b_new = tasmota.scale_uint(fore_alpha, 0, 255, fore_b, back_b)
+          dest_rgb_new = (dest_r_new << 16) | (dest_g_new << 8) | dest_b_new
+        end
+        dest.set(i * 4, dest_rgb_new, 4)
+        i += 1
+      end
+    end
+  end
+
+end
+
+return Leds_frame
+
+# /* @const_object_info_begin
+# class be_class_Leds_frame (scope: global, name: Leds_frame, super:be_class_bytes, strings: weak) {
+#   pixel_size, var
+
+#   init, closure(Leds_frame_be_init_closure)
+
+#   item, closure(Leds_frame_be_item_closure)
+#   setitem, closure(Leds_frame_be_setitem_closure)
+#   set_pixel, closure(Leds_frame_be_set_pixel_closure)
+
+#   // the following are on buffers
+#   blend, static_func(be_leds_blend)
+#   fill_pixels, func(be_leds_fill_pixels)
+#   blend_pixels, func(be_leds_blend_pixels)
+#   paste_pixels, func(be_leds_paste_pixels)
+# }This directory contains the files needed to emulate the Tasmota minimal environment.
+
+Use `import tasmota` to trigger loading of all required components
+# mimick module `animate`
+
+animate = module("animate")
+
+# for solidification
+
+load("tasmota_env/animate_0.be")
+load("tasmota_env/animate_1_core.be")
+load("tasmota_env/animate_2_animate_effects.be")
+load("tasmota_env/animate_9_module.be")
+
+animate.core = global.Animate_core    # make it available as `animate()`
+animate.pulse = global.Animate_pulse
+
+import Leds_frame
+animate.frame = Leds_frame
+
+# Palettes
+# animate.palette.ptr_to_palette(animate.PALETTE_RAINBOW_WHITE).tostring(200)
+animate.PALETTE_RAINBOW_WHITE = bytes('50FF000030FF000050FFA50030FFA50050FFFF0030FFFF005000FF003000FF00500000FF300000FF50FF00FF30FF00FF50FFFFFF30FFFFFF00FF0000')
+animate.PALETTE_STANDARD_TAG = bytes('40FF000040FFA50040FFFF004000FF00400000FF40FF00FF40EE44A500FF0000')
+animate.PALETTE_STANDARD_VAL = bytes('00FF00002AFFA50055FFFF007F00FF00AA0000FFD4FF00FFFFFF0000')
+animate.PALETTE_SATURATED_TAG = bytes('40FF000040FFA50040FFFF004000FF00400000FF40FF00FF00FF0000')
+animate.PALETTE_ib_44 = bytes('00D6181040E3734EFFEFCE8C')
+animate.PALETTE_Fire_1 = bytes('00FF000080FF8000FFFFFF00')
+animate.PALETTE_bhw1_sunconure = bytes('0061F04EA1F6891EFFF62D1E')
+animate.PALETTE_bhw4_089 = bytes('00AE341C1CE09A8535EBD0CE4FF9D0766DE45F3284E3A574A3E28343B8FCD576C9FCA97DE0FFC265FFD75023')
+
+return animate
+# prepare for module `animate`
+
+global.animate = module('animate')# class Animate_core
+
+##########################################################################################
+#
+# class Animate_core
+#
+# Simple framework to orchestrate all the animations for a led strip or led matrix
+#
+# You should pass a Leds or Leds_segment to push pixels at each tick
+# This version uses `fast_loop` for up to 5ms animation time (200 Hz)
+#
+##########################################################################################
+#@ solidify:Animate_core,weak
+class Animate_core
+  var strip         # neopixelbus object
+  var pixel_count   # number of pixels in the strip
+  var bri           # brightness of the animation, 0..100, default 50
+  var running       # is the animation running
+  var animators     # animators list
+  var painters      # list of objects that paint layers on top of background (with transparency)
+  var fast_loop_cb  # closure used for fast_loop
+  static var FAST_LOOP_MIN = 20
+  var fast_loop_next  # next time-stamp for fast_loop
+  # cb for animation
+  var obj             # object called at each tick
+  var mth             # method of object called at each tick
+  # frame ojects
+  var frame           # Leds_frame frame object
+  var layer           # Leds_frame for layer on top of frame
+  # background color management (only for uniform background)
+  var back_color      # background color RRGGBB
+
+  def init(strip, bri)
+    import animate
+
+    self.strip = strip
+    if (bri == nil)   bri = 50    end
+    self.bri = bri      # percentage of brightness 0..100
+    self.set_strip_bri()
+    self.running = false
+    self.pixel_count = strip.pixel_count()
+    self.animators = []
+    self.painters = []
+    #
+    self.clear()        # clear all leds first
+    self.frame = animate.frame(self.pixel_count)
+    self.layer = animate.frame(self.pixel_count)
+    #
+    self.fast_loop_cb = def() self.fast_loop() end
+    self.back_color = 0x000000
+    #
+    self.set_current()
+  end
+
+  def set_strip_bri()
+    self.strip.set_bri(tasmota.scale_uint(self.bri, 0, 100, 0, 255))
+  end
+
+  # set this animate.core as the current animator for configuration
+  def set_current()
+    global._cur_anim = self       # declare the current animate.core for painters and animators to register
+  end
+
+  # cb
+  def set_back_color(col)
+    self.back_color = col
+  end
+
+  def add_background_animator(anim)
+    anim.set_cb(self, self.set_back_color)
+    self.add_animator(anim)
+  end
+
+  def add_animator(anim)
+    if self.animators.find(anim) == nil
+      self.animators.push(anim)
+    end
+  end
+
+  # remove a specific animator
+  # remove all animators if no parameter or nil
+  # silently ignores if the animator can't be found
+  def remove_animator(anim)
+    var animators = self.animators
+    if (anim != nil)
+      animators.remove(animators.find(anim))
+    else
+      animators.clear()
+    end
+  end
+
+  def remove_painter(p)
+    var painters = self.painters
+    if (p != nil)
+      painters.remove(painters.find(p))
+    else
+      painters.clear()
+    end
+  end
+
+
+  def add_painter(painter)
+    if self.painters.find(painter) == nil
+      self.painters.push(painter)
+    end
+  end
+
+  def clear()
+    self.stop()
+    self.strip.clear()
+  end
+  def start()
+    self.running = true
+    var animators = self.animators
+    var idx = 0
+    while idx < size(animators)
+      animators[idx].start()
+      idx += 1
+    end
+    self.fast_loop_next = 0           # run immediately
+    tasmota.add_fast_loop(self.fast_loop_cb)
+  end
+
+  def stop()
+    self.running = false
+    var animators = self.animators
+    var idx = 0
+    while idx < size(animators)
+      animators[idx].stop()
+      idx += 1
+    end
+    tasmota.remove_fast_loop(self.fast_loop_cb)
+  end
+
+  def set_bri(bri)
+    self.bri = bri
+    self.set_strip_bri()
+  end
+  def get_bri(bri)
+    return self.bri
+  end
+
+  def set_cb(obj, method)
+    self.obj = obj
+    self.mth = method
+  end
+
+  def fast_loop()
+    if self.running && tasmota.time_reached(self.fast_loop_next) && self.strip.can_show()
+      # prepare environnement
+      self.frame.fill_pixels(self.back_color)
+      # run animators first
+      var i = 0
+      var now = tasmota.millis()
+      self.fast_loop_next = now + self.FAST_LOOP_MIN
+      while i < size(self.animators)
+        self.animators[i].animate(now)
+        i += 1
+        # var anim = self.animators[i]
+        # if anim.is_running()
+        #   anim.animate(now)
+        #   i += 1
+        # else
+        #   self.animators.remove(i)    # remove any finished animator
+        # end
+      end
+      # apply painters
+      i = 0
+      var frame = self.frame
+      var layer = self.layer
+      while i < size(self.painters)
+        layer.fill_pixels(0xFF000000)      # fill with transparent color
+        if (self.painters[i].paint(layer))
+# print(f"frame0 {self.frame.tohex()}")
+# print(f"layer0 {self.layer.tohex()}")
+          frame.blend_pixels(layer)
+# print(f"frame1 {self.frame.tohex()}")
+        end
+        i += 1
+      end
+      # tirgger animate and display
+      var obj = self.obj
+      var mth = self.mth
+      if (obj && mth)
+        mth(obj)
+      end
+      self.animate()
+      # now display the frame
+      self.frame.paste_pixels(self.strip.pixels_buffer(), self.strip.get_bri(), self.strip.get_gamma())
+      self.strip.dirty()
+      self.strip.show()
+    end
+  end
+
+  def animate()
+    # placeholder - do nothing by default
+  end
+
+  def remove()
+    self.clear()
+    tasmota.remove_fast_loop(self.fast_loop_cb)
+  end
+end
+animate.core = global.Animate_core
+# class Animate_pulse
+
+#@ solidify:Animate_painter,weak
+# painter superclass
+class Animate_painter
+
+  def init()
+    # register ourselves into the current animate.core
+    var core = global._cur_anim
+    if (core != nil)
+      core.add_painter(self)
+    end
+  end
+
+  # return true if buffer was filled successfully
+  #
+  # Needs to be overwritten
+  def paint(frame)
+  end
+
+end
+animate.painter = global.Animate_painter
+
+##########################################################################################
+#
+# class Animate_pulse
+#
+# Display a color pulse
+#
+#         pos (1)
+#           |
+#           v
+#           _______
+#          /       \
+#  _______/         \____________
+#         | |     | |
+#         |2|  3  |2|
+#
+# 1: `pos`, start of the pulse (in pixel)
+# 2: `slew_size`, number of pixels to fade from back to fore color, can be `0`
+# 3: `pulse_size`, number of pixels of the pulse
+#
+##########################################################################################
+
+#@ solidify:Animate_pulse,weak
+class Animate_pulse : Animate_painter
+  var color
+  var back_color
+  var pos
+  var slew_size
+  var pulse_size
+
+  def init(color, pulse_size, slew_size)
+    super(self).init()
+    
+    if (color == nil)         color = 0xFFFFFF  end     # white by default
+    if (pulse_size == nil)   pulse_size = 1   end
+    if (slew_size == nil)     slew_size = 0     end
+
+    self.color = color
+    self.back_color = 0xFF000000      # default to transparent
+    if pulse_size < 0    pulse_size = 0   end
+    self.pulse_size = pulse_size
+    if slew_size < 0      slew_size = 0     end
+    self.slew_size = slew_size
+    self.pos = 0
+  end
+
+  ##
+  ## Setters - to be used as cb for animators
+  ##
+  def set_color(color)
+    self.color = color
+  end
+
+  def set_back_color(c)
+    self.back_color = c
+  end
+
+  def set_pos(pos)
+    self.pos = pos
+  end
+
+  def set_slew_size(slew_size)
+    self.slew_size = slew_size
+  end
+
+  def set_pulse_size(pulse_size)
+    self.pulse_size = pulse_size
+  end
+
+  # return true if buffer was filled successfully
+  def paint(frame)
+    var back_color = self.back_color
+    if (back_color != 0xFF000000)
+      frame.fill_pixels(back_color)      # fill with transparent color
+    end
+    var pos = self.pos
+    var slew_size = self.slew_size
+    var pulse_size = self.pulse_size
+    var color = self.color
+    var pixel_size = frame.pixel_size
+
+    # var min_index = pos - slew_size
+    # var max_index = pos + pulse_size + slew_size - 1
+
+    var pulse_min, pulse_max
+    pulse_min = pos
+    pulse_max = pos + pulse_size
+    if (pulse_min < 0)   pulse_min = 0    end
+    if (pulse_max >= pixel_size)    pulse_max = pixel_size  end
+
+    var i = pulse_min
+    while (i < pulse_max)
+      frame[i] = color
+      i += 1
+    end
+
+    if (slew_size > 0)
+      # check first slew, from `min_index` to `pos - 1`
+      # Slew 1
+      pulse_min = pos - slew_size
+      pulse_max = pos
+      if (pulse_min < 0)   pulse_min = 0    end
+      if (pulse_max >= pixel_size)    pulse_max = pixel_size end
+      i = pulse_min
+      while (i < pulse_max)
+        # blend from 255 (back) to 0 (fore)
+        frame[i] = frame.blend(back_color, color, tasmota.scale_int(i, pos - slew_size - 1, pos, 255, 0))
+        # blend
+        i += 1
+      end
+      # Slew 2
+      pulse_min = pos + pulse_size
+      pulse_max = pos + pulse_size + slew_size
+      if (pulse_min < 0)   pulse_min = 0    end
+      if (pulse_max >= pixel_size)    pulse_max = pixel_size end
+      i = pulse_min
+      while (i < pulse_max)
+        # blend
+        frame[i] = frame.blend(back_color, color, tasmota.scale_int(i, pos + pulse_size - 1, pos + pulse_size + slew_size, 0, 255))
+        i += 1
+      end
+    end
+
+    return true
+  end
+end
+animate.pulse = global.Animate_pulse
+
+#
+# Unit tests
+#
+if false
+
+import animate
+var frame = animate.frame(10)
+assert(frame.tohex() == '00000000000000000000000000000000000000000000000000000000000000000000000000000000')
+
+var pulse = animate.pulse(0x00FF00, 3, 2)
+pulse.set_pos(5)
+pulse.paint(frame)
+assert(frame.tohex() == '0000000000000000000000000055000000AA000000FF000000FF000000FF000000AA000000550000')
+
+pulse.set_back_color(0x111111)
+pulse.set_slew_size(1)
+pulse.paint(frame)
+assert(frame.tohex() == '111111001111110011111100111111000988090000FF000000FF000000FF00000988090011111100')
+
+pulse.set_back_color(0x00000000)
+pulse.paint(frame)
+assert(frame.tohex() == '00000000000000000000000000000000007F000000FF000000FF000000FF0000007F000000000000')
+
+pulse.set_pulse_size(0)
+pulse.paint(frame)
+assert(frame.tohex() == '00000000000000000000000000000000007F0000007F000000000000000000000000000000000000')
+
+pulse.set_slew_size(3)
+pulse.paint(frame)
+assert(frame.tohex() == '000000000000000000400000007F000000BF000000BF0000007F0000004000000000000000000000')
+
+pulse.set_slew_size(0)
+pulse.paint(frame)
+assert(frame.tohex() == '00000000000000000000000000000000000000000000000000000000000000000000000000000000')
+
+end
+#
+# class Animate
+#
+# Animation framework
+#
+
+#################################################################################
+# class Animate_palette
+#
+# Animated color palette
+#################################################################################
+
+#################################################################################
+# Palette format compatible
+#
+# Takes a binary array with a set of 4 bytes elements: VRGB
+# V:  Value in a range 0..255. The first value must be 0,
+#     the last needs to be 255.
+#     Numbers must be in strictly increasin numbers.
+#     The algorithm maps a 0..255 rotating value to its color
+#     in the palette.
+# R:  Red component
+# G:  Green component
+# B:  Blue component
+#     Note: RGB is in big Endian to make it more readable, although
+#     it's little-endian when in memory. Be aware!
+#     RGB values are stored at max brightness and without gamma correction
+#################################################################################
+
+# # Gradient palette "ib_jul01_gp", originally from
+# # http://soliton.vm.bytemark.co.uk/pub/cpt-city/ing/xmas/tn/ib_jul01.png.index.html
+# var PALETTE_ib_jul01_gp = bytes(
+#   "00"  "E60611"
+#   "5E"  "25605A"
+#   "85"  "90BD6A"
+#   "FF"  "BB030D"
+# )
+# # animate.PALETTE_ib_jul01_gp = PALETTE_ib_jul01_gp
+# # rgb(230,  6, 17)   0.000%,
+# # rgb( 37, 96, 90)  37.010%,
+# # rgb(144,189,106)  52.000%,
+# # rgb(187,  3, 13) 100.000%
+
+# var PALETTE_STANDARD_VAL = bytes(
+#   "00"  "FF0000"    # red
+#   "24"  "FFA500"    # orange
+#   "49"  "FFFF00"    # yellow
+#   "6E"  "008800"    # green
+#   "92"  "0000FF"    # blue
+#   "B7"  "4B0082"    # indigo
+#   "DB"  "EE82EE"    # violet
+#   "FF"  "FF0000"    # red
+# )
+# # animate.PALETTE_STANDARD = PALETTE_STANDARD
+
+# var PALETTE_SATURATED_TAG = bytes(
+#   "40"  "FF0000"    # red
+#   "40"  "FFA500"    # orange
+#   "40"  "FFFF00"    # yellow
+#   "40"  "00FF00"    # green
+#   "40"  "0000FF"    # blue
+#   "40"  "FF00FF"    # indigo
+#   "40"  "EE44A5"    # violet
+#   "00"  "FF0000"    # red
+# )
+
+# var PALETTE_STANDARD_TAG = bytes(
+#   "40"  "FF0000"    # red
+#   "40"  "FFA500"    # orange
+#   "40"  "FFFF00"    # yellow
+#   "40"  "008800"    # green
+#   "40"  "0000FF"    # blue
+#   "40"  "4B0082"    # indigo
+#   "40"  "EE82EE"    # violet
+#   "00"  "FF0000"    # red
+# )
+# # animate.PALETTE_STANDARD = PALETTE_STANDARD
+
+#@ solidify:Animate_animator,weak
+class Animate_animator
+  # timing information
+  var running           # true if running
+  var duration_ms       # duration_ms of the entire cycle in ms, cannot be `0`
+  var origin            # origin in ms of the current cycle, as per tasmota.millis() reference
+  # callback information
+  var obj               # object to call
+  var mth               # object method to call
+
+  def init()
+    # register ourselves into the current animate.core
+    var core = global._cur_anim
+    if (core != nil)
+      core.add_animator(self)
+    end
+  end
+
+  def set_duration_ms(duration_ms)
+    self.duration_ms = duration_ms
+  end
+
+  def set_cb(obj, mth)
+    self.obj = obj
+    self.mth = mth
+  end
+
+  def start(millis)
+    if (self.duration_ms == nil)   return    end
+    if millis == nil    millis = tasmota.millis()   end
+    self.origin = millis
+    self.running = true
+  end
+
+  def stop()
+    self.origin = nil
+    self.running = false
+  end
+
+  def is_running()
+    return bool(self.running)
+  end
+
+  # called at the end of each cycle
+  def beat()
+  end
+
+end
+animate.animator = Animate_animator
+
+#@ solidify:Animate_palette,weak
+class Animate_palette : Animate_animator
+  ## inherited
+  ## timing information
+  # var running
+  # var duration_ms       # duration_ms of the entire cycle in ms, cannot be `0`
+  # var origin            # origin in ms of the current cycle, as per tasmota.millis() reference
+  ## callback information
+  # var obj               # object to call
+  # var mth               # object method to call
+
+  # parsing of palette
+  var palette           # raw bytes object
+  var slots_arr         # constructed array of timestamp slots
+  var slots             # number of slots
+  # range information (when used as range color)
+  var range_min         # minimum value expected as input
+  var range_max         # maximum value expected as input, needs (range_min < range_max, can be negative)
+  # brightness
+  var bri               # brightness to be applied to palette 0..100
+  # color object to do RGB color calculation
+  var color             # instance of light_state, used for color calculation (reuse of object)
+
+  def init(palette, duration_ms)
+    super(self).init()
+
+    self.duration_ms = duration_ms
+    self.running = false
+    self.bri = 100
+    self.color = light_state(light_state.RGB)
+    #
+    self.set_palette(palette)
+  end
+
+  # load or change palette
+  def set_palette(palette)
+    if (type(palette) == 'ptr')   palette = self.ptr_to_palette(palette)    end   # convert comptr to palette buffer
+    self.palette = palette
+    self.slots = size(palette) / 4
+    # recompute palette
+    if self.duration_ms != nil
+      self.set_duration(self.duration_ms)
+    elif (self.range_min != nil) && (self.range_max != nil)
+      self.set_range(self.range_min, self.range_max)
+    end
+  end
+
+  # setter to be used as cb
+  def set_bri(bri)
+    self.bri = int(bri)
+  end
+
+  # convert a comptr to a bytes() for palette
+  # parse the raw bytes to find the actual length
+  #
+  # input: comptr
+  # return: bytes() object of palette
+  static def ptr_to_palette(p)
+    if type(p) == 'ptr'
+      var b_raw = bytes(p, 2000)      # arbitrary large size
+      var idx = 1
+      if b_raw[0] != 0
+        # palette in tick counts
+        while true
+          if b_raw[idx * 4] == 0
+            break
+          end
+          idx += 1
+        end
+      else
+        # palette is in value range from 0..255
+        while true
+          if b_raw[idx * 4] == 0xFF
+            break
+          end
+          idx += 1
+        end
+      end
+      var sz = (idx + 1) * 4
+      return bytes(p, sz)
+    end
+  end
+
+  def parse_palette(min, max)
+    var arr = []
+    var slots = self.slots
+    arr.resize(slots)
+
+    # check if we have slots or values
+    # if first value index is non-zero, it's ticks count
+    if self.palette.get(0, 1) != 0
+      # palette in tick counts
+      # compute the total number of ticks
+      var total_ticks = 0
+      var idx = 0
+      while idx < slots - 1
+        total_ticks += self.palette.get(idx * 4, 1)
+        idx += 1
+      end
+      var cur_ticks = 0
+      idx = 0
+      while idx < slots
+        arr[idx] = tasmota.scale_int(cur_ticks, 0, total_ticks, min, max)
+        cur_ticks += self.palette.get(idx * 4, 1)
+        idx += 1
+      end
+    else
+      # palette is in value range from 0..255
+      var idx = 0
+      while idx < slots
+        var val = self.palette.get(idx * 4, 1)
+        arr[idx] = tasmota.scale_int(val, 0, 255, min, max)
+        idx += 1
+      end
+    end
+    # print(f"ANM: {arr=}")
+    return arr
+  end
+
+  def set_duration(duration_ms)
+    if (duration_ms == nil)   return    end
+    if duration_ms <= 0    raise "value_error", "duration_ms must be positive"    end
+    self.duration_ms = duration_ms
+
+    self.slots_arr = self.parse_palette(0, duration_ms - 1)
+  end
+
+  def set_range(min, max)
+    if (min >= max)   raise "value_error", "min must be lower than mex"     end
+    self.range_min = min
+    self.range_max = max
+
+    self.slots_arr = self.parse_palette(min, max)
+  end
+
+  # compute the css linear-gradient description
+  #
+  # Example: background: linear-gradient(to right, #000000, #e66465 11.0%, #9198e5);
+  static def to_css_gradient(palette)
+    var p = _class(palette)
+    var arr = p.parse_palette(0, 1000)
+    var ret = "background:linear-gradient(to right"
+    var idx = 0
+    while idx < size(arr)
+      var prm = arr[idx]    # per mile
+
+      var bgrt = p.palette.get(idx * 4, 4)
+      var r = (bgrt >>  8) & 0xFF
+      var g = (bgrt >> 16) & 0xFF
+      var b = (bgrt >> 24) & 0xFF
+      ret += f",#{r:02X}{g:02X}{b:02X} {prm/10.0:.1f}%"
+      idx += 1
+    end
+    ret += ");"
+    return ret
+  end
+
+  def set_value(value)
+    if (self.range_min == nil || self.range_max == nil)   return nil   end
+    var scale_int = tasmota.scale_int
+
+    # find slot
+    var slots = self.slots
+    var idx = slots - 2
+    while idx > 0
+      if value >= self.slots_arr[idx]    break   end
+      idx -= 1
+    end
+    var bgrt0 = self.palette.get(idx * 4, 4)
+    var bgrt1 = self.palette.get((idx + 1) * 4, 4)
+    var t0 = self.slots_arr[idx]
+    var t1 = self.slots_arr[idx + 1]
+    var r = scale_int(value, t0, t1, (bgrt0 >>  8) & 0xFF, (bgrt1 >>  8) & 0xFF)
+    var g = scale_int(value, t0, t1, (bgrt0 >> 16) & 0xFF, (bgrt1 >> 16) & 0xFF)
+    var b = scale_int(value, t0, t1, (bgrt0 >> 24) & 0xFF, (bgrt1 >> 24) & 0xFF)
+    var rgb = (r << 16) | (g << 8) | b
+    #
+    var obj = self.obj
+    var mth = self.mth
+    if (obj && mth)
+      mth(obj, rgb)
+    end
+    # if self.cb != nil
+    #   self.cb(rgb)
+    # end
+    #
+    # print(f"ANM: {rgb=:%06X}")
+    return rgb
+  end
+
+  def animate(millis)
+    if (self.duration_ms == nil)   return    end
+    if millis == nil    millis = tasmota.millis()   end
+    var past = millis - self.origin
+    if past < 0
+      past = 0
+      millis = self.origin
+    end
+    var duration_ms = self.duration_ms
+    var scale_uint = tasmota.scale_uint
+    if past >= duration_ms
+      self.origin += (past / duration_ms) * duration_ms
+      past = past % duration_ms
+    end
+    # find slot
+    var slots = self.slots
+    var idx = slots - 2
+    while idx > 0
+      if past >= self.slots_arr[idx]    break   end
+      idx -= 1
+    end
+    var bgrt0 = self.palette.get(idx * 4, 4)
+    var bgrt1 = self.palette.get((idx + 1) * 4, 4)
+    var t0 = self.slots_arr[idx]
+    var t1 = self.slots_arr[idx + 1]
+    var r = scale_uint(past, t0, t1, (bgrt0 >>  8) & 0xFF, (bgrt1 >>  8) & 0xFF)
+    var g = scale_uint(past, t0, t1, (bgrt0 >> 16) & 0xFF, (bgrt1 >> 16) & 0xFF)
+    var b = scale_uint(past, t0, t1, (bgrt0 >> 24) & 0xFF, (bgrt1 >> 24) & 0xFF)
+
+    var color = self.color
+    color.set_rgb((bgrt0 >>  8) & 0xFF, (bgrt0 >> 16) & 0xFF, (bgrt0 >> 24) & 0xFF)
+    var bri0 = color.bri
+    color.set_rgb((bgrt1 >>  8) & 0xFF, (bgrt1 >> 16) & 0xFF, (bgrt1 >> 24) & 0xFF)
+    var bri1 = color.bri
+    var bri2 = scale_uint(past, t0, t1, bri0, bri1)
+    color.set_rgb(r, g, b)
+    color.set_bri(bri2)
+
+    r = color.r
+    g = color.g
+    b = color.b
+
+    # apply self.bri if not `100`
+    var bri = self.bri
+    if bri != 100
+      r = tasmota.scale_uint(r, 0, 100, 0, bri)
+      g = tasmota.scale_uint(g, 0, 100, 0, bri)
+      b = tasmota.scale_uint(b, 0, 100, 0, bri)
+    end
+
+    # var rgb = (r << 16) | (g << 8) | b
+    var rgb = (r << 16) | (g << 8) | b
+
+    var obj = self.obj
+    var mth = self.mth
+    if (obj && mth)
+      mth(obj, rgb)
+    end
+    
+    return rgb
+  end
+end
+animate.palette = Animate_palette
+
+#-
+
+pal = Animate_palette(PALETTE_STANDARD_TAG, 7000)
+pal = Animate_palette(PALETTE_STANDARD_VAL, 7000)
+
+
+import animate
+var pal = animate.palette(PALETTE_STANDARD_TAG, 7000)
+pal.start(0)
+for t: range(0,8000,200)
+  pal.tick(t)
+end
+
+-#
+
+animate.SAWTOOTH  = 1
+animate.TRIANGLE  = 2
+animate.SQUARE    = 3
+animate.COSINE    = 4
+animate.LASTFOMR  = 5     # identify last form
+
+#@ solidify:Animate_oscillator,weak
+class Animate_oscillator : Animate_animator
+  ## inherited
+  ## timing information
+  # var running
+  # var duration_ms       # duration_ms of the entire cycle in ms, cannot be `0`
+  # var origin            # origin in ms of the current cycle, as per tasmota.millis() reference
+  var phase               # 0..100% - phase shift, default 0
+  var duty_cycle          # 0..100% - duty cycle, default 50%
+  ## callback information
+  # var obj             # object to call
+  # var mth             # object method to call
+  var a                 # starting value
+  var b                 # end value
+  var form              # waveform
+  # current value
+  var value
+  
+  def init(a, b, duration_ms, form)
+    super(self).init()
+    self.phase = 0
+    self.duty_cycle = 50
+    self.a = a
+    self.b = b
+    self.duration_ms = duration_ms
+    self.value = a
+    if (form == nil)    form = 1    end
+    self.form = form
+  end
+
+  def set_phase(phase)
+    if (phase < 0)    phase = 0     end
+    if (phase > 100)  phase = 100   end
+    self.phase = phase
+  end
+
+  def set_duty_cycle(duty_cycle)
+    if (duty_cycle < 0)   duty_cycle = 0    end
+    if (duty_cycle > 100) duty_cycle = 100  end
+    self.duty_cycle = duty_cycle
+  end
+
+  def set_a(a)
+    self.a = a
+  end
+  def set_b(b)
+    self.b = b
+  end
+
+  def set_form(form)
+    if (form == nil)    form = 1    end
+    self.form = form
+  end
+
+  def animate(millis)
+    if (self.duration_ms == nil)   return    end
+    if millis == nil    millis = tasmota.millis()   end
+    var past = millis - self.origin
+    if past < 0
+      past = 0
+      millis = self.origin
+    end
+    var duration_ms = self.duration_ms
+    var duration_ms_mid                       # mid point considering duty cycle
+    duration_ms_mid = tasmota.scale_uint(self.duty_cycle, 0, 100, 0, duration_ms)
+    if past >= duration_ms
+      self.origin += (past / duration_ms) * duration_ms
+      past = past % duration_ms
+      # handle end of cycle
+      self.beat()
+    end
+
+    var a = self.a
+    var b = self.b
+    var value = self.value
+    var past_with_phase = past          # adjust past with phase
+    if self.phase > 0
+      past_with_phase += tasmota.scale_uint(self.phase, 0, 100, 0, duration_ms)
+      if (past_with_phase > duration_ms)    past_with_phase -= duration_ms    end   # if overflow, take modulus
+    end
+
+    if   self.form == 1 #-SAWTOOTH-#
+      value = tasmota.scale_int(past_with_phase, 0, duration_ms - 1, a, b)
+    elif self.form == 2 #-TRIANGLE-#
+      if past_with_phase < duration_ms_mid
+        value = tasmota.scale_int(past_with_phase, 0, duration_ms_mid - 1, a, b)
+      else
+        value = tasmota.scale_int(past_with_phase, duration_ms_mid, duration_ms - 1, b, a)
+      end
+    elif self.form == 3 #-SQUARE-#
+      if past_with_phase < duration_ms_mid
+        value = a
+      else
+        value = b
+      end
+    elif (self.form == 4) #-COSINE-#
+      # map timing to 0..32767
+      var angle = tasmota.scale_int(past_with_phase, 0, duration_ms - 1, 0, 32767)
+      var x = tasmota.sine_int(angle - 8192)   # -4096 .. 4096, dephase from cosine to sine
+      value = tasmota.scale_int(x, -4096, 4096, a, b)
+    end
+    self.value = value
+
+    var obj = self.obj
+    var mth = self.mth
+    if (obj && mth)
+      mth(obj, value)
+    end
+    
+    return value
+  end
+end
+global.animate.oscillator = Animate_oscillator
+#- Native code used for testing and code solidification -#
+#- Do not use it -#
+
+#@ solidify:Driver
+class Driver
+  var every_second
+  var every_100ms
+  var web_add_handler
+  var web_add_button
+  var web_add_main_button
+  var web_add_management_button
+  var web_add_config_button
+  var web_add_console_button
+  var save_before_restart
+  var web_sensor
+  var json_append
+  var after_teleperiod
+  var button_pressed
+  var display
+
+  def add_cmd(c, f)
+    # ignore in the emulation for now
+    # tasmota.add_cmd(c, / cmd, idx, payload, payload_json -> f(self, cmd, idx, payload, payload_json))
+  end
+end#################################################################################
+# dyn class
+#
+# Allows to use a map with members
+# see https://github.com/berry-lang/berry/wiki/Chapter-8
+#################################################################################
+#@ solidify:dyn
+class dyn
+  var _attr
+  def init()
+      self._attr = {}
+  end
+  def setmember(name, value)
+      self._attr[name] = value
+  end
+  def member(name)
+    if self._attr.contains(name)
+        return self._attr[name]
+    else
+        import undefined
+        return undefined
+    end
+  end
+  def tostring()
+    return self._attr.tostring()
+  end
+end#!/usr/bin/env -S ../../../lib/libesp32/berry/berry -s -g
+#
+# unit tests
+
+# add local dir
+import sys
+sys.path().push(".")
+
+# import modules
+# import tasmota
+import light_state
+import Leds_frame
+
+# tests
+assert(tasmota.scale_int(10,-500,500,5000,-5000) == -100)
+assert(tasmota.scale_int(0,-500,500,5000,-5000) == 0)
+assert(tasmota.scale_int(-500,-500,500,5000,-5000) == 5000)
+assert(tasmota.scale_int(450,-500,500,5000,-5000) == -4500)
+
+assert(light_state.ledGamma10_10(0) == 0)
+assert(light_state.ledGamma10_10(1) == 1)
+assert(light_state.ledGamma10_10(10) == 1)
+assert(light_state.ledGamma10_10(45) == 3)
+assert(light_state.ledGamma10_10(500) == 145)
+assert(light_state.ledGamma10_10(1020) == 1016)
+assert(light_state.ledGamma10_10(1023) == 1023)
+
+print("=== All tests OK")
+
+var gpio = module('gpio')
+
+gpio.pin = def () return 0 end
+
+gpio.WS2812 = 1
+
+return gpio
+#fake light module for now
+var light = module('light')
+
+light.state =  {'bri': 77, 'hue': 21, 'power': true, 'sat': 140, 'rgb': '4D3223', 'channels': [77, 50, 35]}
+
+light.get = def () return light.state end
+light.set = def (settings) print(settings) end
+light.gamma10 = def (channel) print(channel) end
+light.gamma8 = def (channel) print(channel) end
+light.reverse_gamma10 = def (channel) print(channel) end
+
+return light
+# light_state
+
+class light_state
+  static var RELAY = 0
+  static var DIMMER = 1
+  static var CT = 2
+  static var RGB = 3
+  static var RGBW = 4
+  static var RGBCT = 5
+
+  var channels                # number of channels
+
+  var power                   # (bool) on/off state
+  var reachable	              # (bool) light is reachable
+  var type                    # (int) number of channels of the light
+  var bri                     # (int) brightness of the light (0..255)
+  var ct                      # (int) white temperature of the light (153..500)
+  var sat                     # (int) saturation of the light (0..255)
+  var hue                     # (int) hue of the light (0..360)
+  var hue16                   # (int) hue as 16 bits (0..65535)
+  var r, g, b                 # (int) Red Green Blue channels (0..255)
+  var r255, g255, b255        # (int) Red Green Blue channels (0..255) at full brightness
+  var x,y                     # (float) x/y color as floats (0.0 .. 1.0)
+  var mode_ct, mode_rgb       # (bool) light is in RGB or CT mode
+
+  static var _gamma_table = [
+    [    1,      1 ],
+    [    4,      1 ],
+    [  209,     13 ],
+    [  312,     41 ],
+    [  457,    106 ],
+    [  626,    261 ],
+    [  762,    450 ],
+    [  895,    703 ],
+    [ 1023,   1023 ],
+    [ 0xFFFF, 0xFFFF ]          # fail-safe if out of range
+  ]
+
+
+  def init(channels)
+    self.power = false
+    self.reachable = true
+    self.type = channels
+    self.bri = 0
+    self.ct = 153
+    self.sat = 255
+    self.hue = 0
+    self.hue16 = 0
+    self.r255 = 255
+    self.g255 = 255
+    self.b255 = 255
+    self.r = 0
+    self.g = 0
+    self.b = 0
+    self.x = 0.5
+    self.y = 0.5
+    self.mode_ct = false
+    self.mode_rgb = true
+  end
+
+  #
+  # INTERNAL
+  #
+  def signal_change() end     # nop
+
+  #
+  # GAMMA
+  #
+  # 10 bits in, 10 bits out
+  static def ledGamma10_10(v)
+    return _class.ledGamma_internal(v, _class._gamma_table)
+  end
+
+  static def ledGamma8_8(v8)
+    if (v8 <= 0)    return 0    end
+    var v10 = tasmota.scale_uint(v8, 0, 255, 0, 1023)
+    var g10 = _class.ledGamma10_10(v10)
+    var g8 = tasmota.scale_uint(g10, 4, 1023, 1, 255)
+    return g8
+  end
+
+  # Calculate the gamma corrected value for LEDS
+  static def ledGamma_internal(v, gt_ptr)
+    var from_src = 0
+    var from_gamma = 0
+  
+    var idx = 0
+    while true
+      var gt = gt_ptr[idx]
+      var to_src = gt[0]
+      var to_gamma = gt[1]
+      if (v <= to_src)
+        return tasmota.scale_uint(v, from_src, to_src, from_gamma, to_gamma)
+      end
+      from_src = to_src
+      from_gamma = to_gamma
+      idx += 1
+    end
+  end
+
+  def set_rgb(r,g,b)
+    var maxi = (r > g && r > b) ? r : (g > b) ? g : b      #   // 0..255
+
+    if (0 == maxi)
+      r = 255
+      g = 255
+      b = 255
+      #self.mode_ct = false
+      #self.mode_rgb = true
+      #setColorMode(LCM_CT);   // try deactivating RGB, setColorMode() will check if this is legal
+    else
+      if (255 > maxi)
+        #// we need to normalize rgb
+        r = tasmota.scale_uint(r, 0, maxi, 0, 255)
+        g = tasmota.scale_uint(g, 0, maxi, 0, 255)
+        b = tasmota.scale_uint(b, 0, maxi, 0, 255)
+      end
+      # addRGBMode();
+    end
+
+    self.r255 = r
+    self.g255 = g
+    self.b255 = b
+    self.compute_rgb()
+    self.RgbToHsb(r,g,b)
+  end
+
+  def RgbToHsb(r,g,b)
+    #RgbToHsb(r, g, b, &hue, &sat, nullptr);
+    # void RgbToHsb(uint8_t ir, uint8_t ig, uint8_t ib, uint16_t *r_hue, uint8_t *r_sat, uint8_t *r_bri) {
+    var max = (r > g && r > b) ? r : (g > b) ? g : b  #   // 0..255
+    var min = (r < g && r < b) ? r : (g < b) ? g : b  #   // 0..255
+    var d = max - min   #   // 0..255
+  
+    var hue = 0   #;   // hue value in degrees ranges from 0 to 359
+    var sat = 0   #;    // 0..255
+    var bri = max #;  // 0..255
+  
+    if (d != 0)
+      sat = tasmota.scale_uint(d, 0, max, 0, 255)
+      if (r == max)
+        hue = (g > b) ?       tasmota.scale_uint(g-b,0,d,0,60) : 360 - tasmota.scale_uint(b-g,0,d,0,60)
+      elif (g == max)
+        hue = (b > r) ? 120 + tasmota.scale_uint(b-r,0,d,0,60) : 120 - tasmota.scale_uint(r-b,0,d,0,60)
+      else
+        hue = (r > g) ? 240 + tasmota.scale_uint(r-g,0,d,0,60) : 240 - tasmota.scale_uint(g-r,0,d,0,60)
+      end
+      hue = hue % 360 #;    // 0..359
+    end
+  
+    self.hue = hue
+    self.hue16 = tasmota.scale_uint(hue, 0, 360, 0, 65535);
+    self.sat = sat
+    self.bri = bri
+
+  end
+
+  # convert r255 to r accodring to bri
+  def compute_rgb()
+    self.r = tasmota.scale_uint(self.r255, 0, 255, 0, self.bri)
+    self.g = tasmota.scale_uint(self.g255, 0, 255, 0, self.bri)
+    self.b = tasmota.scale_uint(self.b255, 0, 255, 0, self.bri)
+  end
+
+  def set_bri(bri)
+    if (bri == nil)   bri = 0     end
+    if (bri < 0)      bri = 0     end
+    if (bri > 255)    bri = 255   end
+    self.bri = bri
+    self.compute_rgb()
+  end
+
+  def HsToRgb(hue, sat)
+    #void HsToRgb(uint16_t hue, uint8_t sat, uint8_t *r_r, uint8_t *r_g, uint8_t *r_b) {
+    var r = 255
+    var g = 255
+    var b = 255
+    # // we take brightness at 100%, brightness should be set separately
+    hue = hue % 360   #;  // normalize to 0..359
+
+    if (sat > 0)
+      var i = hue / 60   #;   // quadrant 0..5
+      var f = hue % 60   #;   // 0..59
+      var q = 255 - tasmota.scale_uint(f, 0, 60, 0, sat)   #  // 0..59
+      var p = 255 - sat
+      var t = 255 - tasmota.scale_uint(60 - f, 0, 60, 0, sat)
+
+      if i == 0
+          # //r = 255;
+          g = t
+          b = p
+      elif i == 1
+          r = q
+          # //g = 255;
+          b = p
+      elif i == 2
+          r = p
+          # //g = 255;
+          b = t
+      elif i == 3
+          r = p
+          g = q
+          # //b = 255;
+      elif i == 4
+          r = t
+          g = p
+          # //b = 255;
+      else
+          # //r = 255;
+          g = p
+          b = q
+      end
+      self.r = r
+      self.g = g
+      self.b = b
+    end
+  end
+
+end
+return light_state
+
+#-
+
+var tasmota = compile("tasmota.be","file")()()
+var light_state = compile("light_state.be","file")()
+
+assert(tasmota.scale_int(10,-500,500,5000,-5000) == -100)
+assert(tasmota.scale_int(0,-500,500,5000,-5000) == 0)
+assert(tasmota.scale_int(-500,-500,500,5000,-5000) == 5000)
+assert(tasmota.scale_int(450,-500,500,5000,-5000) == -4500)
+
+assert(light_state.ledGamma10_10(0) == 0)
+assert(light_state.ledGamma10_10(1) == 1)
+assert(light_state.ledGamma10_10(10) == 1)
+assert(light_state.ledGamma10_10(45) == 3)
+assert(light_state.ledGamma10_10(500) == 145)
+assert(light_state.ledGamma10_10(1020) == 1016)
+assert(light_state.ledGamma10_10(1023) == 1023)
+
+-#
+# load()
+
+def load(name)
+  var code = compile(name, "file")
+  code()
+end
+
+return load
+# ls()
+
+def ls(name)
+  import os
+  print(os.listdir())
+end
+
+return ls
+var persist_module = module("persist")
+
+class Persist
+  static var _filename = '_persist.json'
+  var _p
+  var _dirty
+
+  def init()
+    self._p = {}
+    self._dirty = false
+    self.load()
+  end
+
+  #- virtual member getter, if a key does not exists return `nil` instead of exception -#
+  def member(key)
+    return self._p.find(key)
+  end
+
+  #- virtual member setter -#
+  def setmember(key, value)
+    self._p[key] = value
+    self._dirty = true
+  end
+
+  #- clear all entries -#
+  def zero()
+    self._p = {}
+    self._dirty = true
+  end
+  
+  #- force dirty -#
+  def dirty()
+    self._dirty = true
+  end
+
+  def remove(k)
+      self._p.remove(k)
+      self._dirty = true
+  end
+
+  def contains(k)
+      return self._p.contains(k)
+  end
+
+  def has(k)      # deprecated, use contains instead
+    return self._p.contains(k)
+  end
+
+  def find(k, d)
+      return self._p.find(k, d)
+  end
+
+  def load()
+    import json
+    import path
+    var f           # file object
+    var val         # values loaded from json
+
+    if path.exists(self._filename)
+      try
+        f = open(self._filename, "r")
+        val = json.load(f.read())
+        f.close()
+      except .. as e, m
+        if f != nil f.close() end
+        raise e, m
+      end
+      if isinstance(val, map)
+        self._p = val     # success
+      else
+        print("BRY: failed to load _persist.json")
+      end
+      self._dirty = false
+    else
+      self.save()
+    end
+
+    # print("Loading")
+  end
+
+  def save(force_save)
+    if self._dirty || force_save   # do not save if not dirty
+      var f       # file object
+      try
+        f = open(self._filename, "w")
+        self.json_fdump(f)
+        f.close()
+      except .. as e, m
+        if (f != nil) f.close() end
+        f = nil
+        try
+          f = open(self._filename, "w")
+          f.write('{}')   # fallback write empty map
+        except ..
+        end
+        if f != nil f.close() end
+        raise e, m
+      end
+      self._dirty = false
+    end
+  end
+
+  def json_fdump_any(f, v)
+    import json
+    if   isinstance(v, map)
+      self.json_fdump_map(f, v)
+    elif isinstance(v, list)
+      self.json_fdump_list(f, v)
+    else
+      f.write(json.dump(v))
+    end
+  end
+
+  def json_fdump_map(f, v)
+    import json
+    f.write('{')
+    var sep = nil
+    for k:v.keys()
+      if sep != nil  f.write(sep) end
+      
+      f.write(json.dump(str(k)))
+      f.write(':')
+      self.json_fdump_any(f, v[k])
+
+      sep = ","
+    end
+    f.write('}')
+  end
+
+  def json_fdump_list(f, v)
+    import json
+    f.write('[')
+    var i = 0
+    while i < size(v)
+      if i > 0   f.write(',') end
+      self.json_fdump_any(f, v[i])
+      i += 1
+    end
+    f.write(']')
+  end
+
+  def json_fdump(f)
+    import json
+    if isinstance(self._p, map)
+      self.json_fdump_map(f, self._p)
+    else
+      raise "internal_error", "persist._p is not a map"
+    end
+  end
+end
+persist_module.Persist = Persist
+
+persist_module.init = def (m)
+  return m.Persist()    # return an instance of this class
+end
+
+return persist_module# Tasmota emulator - lightweitght for Leds animation
+
+import global
+
+class Tasmota : tasmota_wasm
+  # var _millis           # emulate millis from Tasmota
+  var _fl               # fast_loop
+  var _drivers
+
+  # def init()
+  #   self._millis = 1
+  # end
+
+  static def scale_uint(inum, ifrom_min, ifrom_max, ito_min, ito_max)
+    if (ifrom_min >= ifrom_max)
+      return (ito_min > ito_max ? ito_max : ito_min)  # invalid input, return arbitrary value
+    end
+    
+    var num = inum
+    var from_min = ifrom_min
+    var from_max = ifrom_max
+    var to_min = ito_min
+    var to_max = ito_max
+
+    # check source range
+    num = (num > from_max ? from_max : (num < from_min ? from_min : num))
+
+    # check to_* order
+    if (to_min > to_max)
+      # reverse order
+      num = (from_max - num) + from_min
+      to_min = ito_max
+      to_max = ito_min
+    end
+
+    # short-cut if limits to avoid rounding errors
+    if (num == from_min) return to_min  end
+    if (num == from_max) return to_max  end
+    
+    var result
+    if ((num - from_min) < 0x8000)
+      if (to_max - to_min > from_max - from_min)
+        var numerator = (num - from_min) * (to_max - to_min) * 2
+        result = ((numerator / (from_max - from_min)) + 1 ) / 2 + to_min
+      else
+        var numerator = ((num - from_min) * 2 + 1) * (to_max - to_min + 1)
+        result = numerator / ((from_max - from_min + 1) * 2) + to_min
+      end
+    else
+      var numerator = (num - from_min) * (to_max - to_min + 1)
+      result = numerator / (from_max - from_min) + to_min
+    end
+
+    return (result > to_max ? to_max : (result < to_min ? to_min : result))
+  end
+
+  static def scale_int(num, from_min, from_max, to_min, to_max)
+    # guard-rails
+    if (from_min >= from_max)
+      return (to_min > to_max ? to_max : to_min)  # invalid input, return arbitrary value
+    end
+
+    var from_offset = 0
+    if (from_min < 0)
+      from_offset = - from_min
+    end
+    var to_offset = 0
+    if (to_min < 0)
+      to_offset = - to_min
+    end
+    if (to_max < (- to_offset))
+      to_offset = - to_max
+    end
+
+    return _class.scale_uint(num + from_offset, from_min + from_offset, from_max + from_offset, to_min + to_offset, to_max + to_offset) - to_offset
+  end
+
+  # def millis(offset)
+  #   return self._millis + (offset == nil ? 0 : offset)
+  # end
+
+  # internal debugging function
+  # def set_millis(m)
+  #   self._millis = m
+  # end
+
+  # def time_reached(t)
+  #   # naive implementation because the emulator will not run over 20 days
+  #   return (t <= self._millis)
+  # end
+
+  # fast_loop() is a trimmed down version of event() called at every Tasmota loop iteration
+  # it is optimized to be as fast as possible and reduce overhead
+  # there is no introspect, closures must be registered directly
+  def fast_loop()
+    var fl = self._fl
+    if !fl return end     # fast exit if no closure is registered (most common case)
+
+    # iterate and call each closure
+    var i = 0
+    var sz = size(fl)
+    while i < sz
+      # note: this is not guarded in try/except for performance reasons. The inner function must not raise exceptions
+      fl[i]()
+      i += 1
+    end
+  end
+
+  # check that the parameter is not a method, it would require a closure instead
+  def check_not_method(f)
+    import introspect
+    if type(f) != 'function'
+      raise "type_error", "BRY: argument must be a function"
+    end
+    if introspect.ismethod(f) == true
+      raise "type_error", "BRY: method not allowed, use a closure like '/ args -> obj.func(args)'"
+    end
+  end
+
+  def add_fast_loop(cl)
+    self.check_not_method(cl)
+    if self._fl == nil
+      self._fl = []
+    end
+    if type(cl) != 'function' raise "value_error", "argument must be a function" end
+    global.fast_loop_enabled = 1      # enable fast_loop at global level: `TasmotaGlobal.fast_loop_enabled = true`
+    self._fl.push(cl)
+  end
+
+  def remove_fast_loop(cl)
+    if !self._fl return end
+    var idx = self._fl.find(cl)
+    if idx != nil
+      self._fl.remove(idx)
+    end
+  end
+
+  def sine_int(i)
+    import math
+
+    var x = i / 16384.0 * math.pi
+    var y = math.sin(x)
+    var r = int(y * 4096)
+    return r
+  end
+
+  def time_str(time_stamp)
+    import time
+    var tm = time.dump(time_stamp)
+    return format("%04d-%02d-%02dT%02d:%02d:%02d", tm['year'], tm['month'], tm['day'], tm['hour'], tm['min'], tm['sec'])
+  end
+
+  def gc()
+    import gc
+    gc.collect()
+    return gc.allocated()
+  end
+
+  def add_driver(d)
+    if type(d) != 'instance'
+      raise "value_error", "instance required"
+    end
+    if self._drivers
+      if self._drivers.find(d) == nil     # add only if not already added
+        self._drivers.push(d)
+      end
+    else
+      self._drivers = [d]
+    end
+  end
+
+  def remove_driver(d)
+    if self._drivers
+      var idx = self._drivers.find(d)
+      if idx != nil
+        self._drivers.pop(idx)
+      end
+    end
+  end
+
+  # run every 50ms tick
+  def run_deferred()
+    if self._timers
+      var i=0
+      while i < self._timers.size()
+        var trigger = self._timers[i]
+
+        if self.time_reached(trigger.trig)
+          var f = trigger.f
+          self._timers.remove(i)      # one shot event
+          f()
+        else
+          i += 1
+        end
+      end
+    end
+  end
+  
+
+  def event(event_type, cmd, idx, payload, raw)
+    import introspect
+    # next section does beak emulation for yet unknown reason
+    # if event_type=='every_50ms'
+    #   self.run_deferred()
+    # end  #- first run deferred events -#
+
+    # if event_type=='every_250ms'
+    #   self.run_cron()
+    # end
+
+    var done = false
+    var keep_going = false    # if true, we continue dispatch event if done == true (for mqtt_data)
+
+    if event_type == 'mqtt_data'
+      keep_going = true
+    end
+
+    if event_type=='cmd' return self.exec_cmd(cmd, idx, payload)
+    elif event_type=='tele' return self.exec_tele(payload)
+    elif event_type=='rule' return self.exec_rules(payload, bool(idx))
+    elif event_type=='gc' return self.gc()
+    elif self._drivers
+      var i = 0
+      while i < size(self._drivers)
+        var d = self._drivers[i]
+        var f = introspect.get(d, event_type)   # try to match a function or method with the same name
+        if type(f) == 'function'
+          try
+            done = f(d, cmd, idx, payload, raw) || done
+            if done && !keep_going   break end
+          except .. as e,m
+            print(format("BRY: Exception> '%s' - %s", e, m))
+            if self._debug_present
+              import debug
+              debug.traceback()
+            end
+          end
+        end
+        i += 1
+      end
+    end
+
+    # save persist
+    if event_type=='save_before_restart'
+      import persist
+      persist.save()
+    end
+
+    return done
+  end
+
+
+end
+
+import light_state
+import Leds
+import Leds_frame
+
+global.tasmota = Tasmota()
+return tasmota
+#@ solidify:uuid
+uuid = module("uuid")
+uuid.uuid4 = def ()
+  import math
+  return format("%08x-%04x-%04x-%04x-%04x%08x",
+                       math.rand(),
+                       math.rand() & 0xFFFF,
+                       math.rand() & 0x0FFF | 0x4000,
+                       math.rand() & 0x3FFF | 0x8000,
+                       math.rand() & 0xFFFF,
+                       math.rand() )
+end
+
+return uuid
