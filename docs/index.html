@@ -38,8 +38,8 @@
                 var c,
                     cc,
                     o = "";
-                clearTimeout(lt);
-                clearTimeout(ft);
+                // clearTimeout(lt);
+                // clearTimeout(ft);
                 t = eb("t1");
                 if (p == 1) {
                     c = eb("c1");
@@ -81,7 +81,7 @@
                     }
                     t.scrollTop = 1e8;
                     sn = t.scrollTop;
-                    clearTimeout(ft);
+                    // clearTimeout(ft);
                     // lt = setTimeout(l, ltm);
 
                     // ft = setTimeout(l, 2e4);
@@ -235,17 +235,15 @@
 
             }
 
-            async function waitLineText() {
-                const waitms = (delay) =>
-                    new Promise((resolve) => setTimeout(resolve, delay));
-                while (!readline) await waitms(0);
-                var prompt = readline;
-                prompt += "\n"; //to investigate, just had to add some random char here
-                readline = null;
-                console.log("okay:", prompt);
-                return prompt;
-            }
-            async function writeOutputText(text) {
+            // function SendFromRepl(payload){
+            //     var result = Module.ccall('BrREPLRun', // name of C function
+            //     'number', // return type
+            //     ['string'], // argument types
+            //     [payload]); // arguments
+            //     console.log("okay:", payload);
+            // }
+
+            function writeOutputText(text){
                 console.log("from Berry:", text);
                 if (text) {
                     if (text == "> " || text == ">> ") {
@@ -256,9 +254,18 @@
                     }
                 }
             }
-            // async function writeOutputFile(text) {
-            //     console.log(text);
-            // }
+
+            async function waitLineText() {
+                const waitms = (delay) =>
+                    new Promise((resolve) => setTimeout(resolve, delay));
+                while (!readline) await waitms(1);
+                var prompt = readline;
+                prompt += "\n"; //to investigate, just had to add some random char here
+                readline = null;
+                console.log("okay:", prompt);
+                return prompt;
+            }
+
             function writeLedBuffer(msg){
                 drawLED(msg);
             }
