@@ -1,6 +1,8 @@
 FROM gitpod/workspace-base
 
-RUN sudo apt-get update \
- && sudo apt-get install -y \
-    emscripten \
- && sudo rm -rf /var/lib/apt/lists/*
+RUN git clone https://github.com/emscripten-core/emsdk.git \
+ && cd emsdk \
+ && ./emsdk install latest \
+ && ./emsdk activate latest \
+ && source ./emsdk_env.sh \
+ && c ..
