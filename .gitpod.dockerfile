@@ -1,8 +1,1 @@
 FROM gitpod/workspace-base
-
-RUN git clone https://github.com/emscripten-core/emsdk.git \
- && cd emsdk \
- && ./emsdk install latest \
- && ./emsdk activate latest \
- && . ./emsdk_env.sh \
- && cd ..
