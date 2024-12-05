@@ -75,19 +75,51 @@ class Tasmota : tasmota_wasm
     return _class.scale_uint(num + from_offset, from_min + from_offset, from_max + from_offset, to_min + to_offset, to_max + to_offset) - to_offset
   end
 
-  # def millis(offset)
-  #   return self._millis + (offset == nil ? 0 : offset)
-  # end
+  def cmd()
+    print("cmd - fake method")
+  end
 
-  # internal debugging function
-  # def set_millis(m)
-  #   self._millis = m
-  # end
+  def yield()
+    print("yield - fake method")
+  end
 
-  # def time_reached(t)
-  #   # naive implementation because the emulator will not run over 20 days
-  #   return (t <= self._millis)
-  # end
+  def rtc(key)
+    import time
+    var ts = time.time()
+    if key
+      return {'local': ts, 'utc': ts, 'timezone': 60, 'restart': ts}[key]
+    else
+      return {'local': ts, 'utc': ts, 'timezone': 60, 'restart': ts}
+    end
+  end
+
+  def time_dump(ts)
+    import time
+    return time.dump(ts)
+  end
+
+  def strftime(sformat,ts)
+    import string
+    var td = self.time_dump(ts)
+    var s = sformat
+    string.replace(s,"%H",str(td["hour"]))
+    string.replace(s,"%M",str(td["min"]))
+    string.replace(s,"%S",str(td["sec"]))
+    string.replace(s,"%Y",str(td["year"]))
+    string.replace(s,"%m",str(td["month"]))
+    string.replace(s,"%d",str(td["day"]))
+    print("fake - strftime ... does not work")
+    return s
+  end
+
+  def read_sensors()
+    return {'ANALOG': {'A1': 2300, 'A1': 2300, 'Illuminance1': 100}}
+  end
+
+  def wifi()
+    print("fake - wifi")
+    return {'mac': 'aa:bb:cc:22:11:03', 'quality': 100, 'rssi': -47, 'ip': '192.168.1.102'}
+  end
 
   # fast_loop() is a trimmed down version of event() called at every Tasmota loop iteration
   # it is optimized to be as fast as possible and reduce overhead

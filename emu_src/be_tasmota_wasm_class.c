@@ -7,6 +7,7 @@
 #include "be_gc.h"
 #include <stdint.h>
 #include <emscripten/html5.h>
+#include <emscripten/wget.h>
 #include <string.h>
 
 const char kTypeError[] = "type_error";
@@ -52,8 +53,23 @@ static int32_t l_timereached(struct bvm *vm) {
   be_raise(vm, kTypeError, nullptr);
 }
 
+static int32_t l_urlfetch(struct bvm *vm) {
+  int32_t top = be_top(vm);
+  if (top >= 2 && be_isstring(vm, 2)) {
+    const char* url = be_tostring(vm, 2);
+    char* file = (char*)url;
+    if (top == 3 && be_isstring(vm, 3)) {
+      file = (char*)be_tostring(vm, 3);
+    }
+    int error =  emscripten_wget(url, (const char*) file);
+    be_pushbool(vm, (error == 0));
+    be_return(vm);
+  }
+  be_raise(vm, kTypeError, nullptr);
+}
+
 static int32_t l_log(struct bvm *vm) {
-  int32_t top = be_top(vm); // Implement later or never
+  int32_t top = be_top(vm);
   if (top == 2 && be_isstring(vm, 2)) {
     const char* msg = be_tostring(vm, 2);
     emscripten_console_log(msg);
@@ -65,7 +81,7 @@ static int32_t l_log(struct bvm *vm) {
 
 extern void be_writeEmulatorbuffer(const char *buffer, size_t length);
 static int32_t l_led_buffer(struct bvm *vm) {
-  int32_t top = be_top(vm); // Implement later or never
+  int32_t top = be_top(vm); 
   if (top == 2 && be_isstring(vm, 2)) {
     const char* msg = be_tostring(vm, 2);
     be_writeEmulatorbuffer(msg, strlen(msg));
@@ -95,6 +111,7 @@ class be_class_tasmota_wasm (scope: global, name: tasmota_wasm) {
     set_millis, func(l_dummy)
     log, func(l_log)
     led_buffer, func(l_led_buffer)
+    urlfetch,func(l_urlfetch)
 }
 @const_object_info_end */
 #include "../generate/be_fixed_be_class_tasmota_wasm.h"
