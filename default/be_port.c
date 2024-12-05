@@ -21,16 +21,9 @@
 #include <emscripten.h>
 #include <stdlib.h>
 
-// EM_JS(void, _js_writeEmulatorBuffer, (const char *text, size_t length), {
-//     // Note how we return the output of handleAsync() here.
-//     return Asyncify.handleAsync(async() => {
-//         await writeLedBuffer(UTF8ToString(text, length));
-//     });
-// })
 
-
-EM_ASYNC_JS(void, _js_writeEmulatorBuffer, (const char *text, size_t length), {
-    await writeLedBuffer(UTF8ToString(text, length));
+EM_JS(void, _js_writeEmulatorBuffer, (const char *text, size_t length), {
+    writeLedBuffer(UTF8ToString(text, length));
 })
 
 BERRY_API void be_writeEmulatorbuffer(const char *buffer, size_t length)
@@ -38,34 +31,15 @@ BERRY_API void be_writeEmulatorbuffer(const char *buffer, size_t length)
     _js_writeEmulatorBuffer(buffer, length);
 }
 
-// EM_JS(void, _js_writebuffer, (const char *text, size_t length), {
-//     // Note how we return the output of handleAsync() here.
-//     return Asyncify.handleAsync(async() => {
-//         await writeOutputText(UTF8ToString(text, length));
-//     });
-// })
 
-EM_ASYNC_JS(void, _js_writebuffer, (const char *text, size_t length), {
-    await writeOutputText(UTF8ToString(text, length));
+EM_JS(void, _js_writebuffer, (const char *text, size_t length), {
+    writeOutputText(UTF8ToString(text, length));
 })
 
 BERRY_API void be_writebuffer(const char *buffer, size_t length)
 {
     _js_writebuffer(buffer, length);
 }
-
-// EM_JS(char*, _js_readbuffer, (void), {
-//     // Note how we return the output of handleAsync() here.
-//     return Asyncify.handleAsync(async() => {
-//         const text = await waitLineText();
-//         // 'jsString.length' would return the length of the string as UTF-16
-//         // units, but Emscripten C strings operate as UTF-8.
-//         var lengthBytes = lengthBytesUTF8(text) + 1;
-//         var stringOnWasmHeap = _malloc(lengthBytes);
-//         stringToUTF8(text, stringOnWasmHeap, lengthBytes);
-//         return stringOnWasmHeap;
-//     });
-// })
 
 EM_ASYNC_JS(char*, _js_readbuffer, (void), {
     // Note how we return the output of handleAsync() here.
