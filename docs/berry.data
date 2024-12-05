@@ -45,7 +45,203 @@ palette.set_cb(pulse, pulse.set_color)
 
 anim.start()
 #
-print("All good")#-
+print("All good")class UNANIM
+  var color, cycles, delay, mode
+  var clist
+  var steps
+
+  def init(color, cycles, delay, mode)
+    self.color = color
+    self.cycles = cycles
+    self.delay = delay
+    self.mode = mode
+    self.colorFromSeed()
+    self.steps = 0
+  end
+
+  def colorFromSeed()
+    var divider = 8
+    if  self.mode == 2 ||  self.mode == 3
+      divider = 9
+    end
+    var r = (((self.color >> 16) / divider) << 16) & 0xff0000
+    var g = ((((self.color >> 8) & 0xff) / divider) << 8) & 0xff00
+    var b = (((self.color & 0xff) / divider))
+    var step = r | g | b
+    # print(f"{r:x} {g:x} {b:x}  {step:x}")
+    var clist = [self.color,0,0,0,0,0,0,0]
+    var pos = 1..7
+    for i:pos
+      clist[i] = clist[i-1] - step
+    end
+    if self.mode == 2 || self.mode == 3
+      clist = clist[4..7] + clist[4..7].reverse()
+    end
+    self.clist = clist
+    if self.mode == 4
+      self.steps = 8
+      self.updateCList()
+    end
+  end
+
+  def clearFirst()
+    if self.steps < 7
+      var r = 0..(7-self.steps)
+      for i:r
+        self.clist[i] = 0
+      end
+    end
+  end
+
+  def updateCList()
+    var step = self.cycles
+    var mode = self.mode
+    var r
+    if mode == 0 || mode == 2 || mode == 4
+      var last = self.clist[0]
+      r = 0..6
+      for i:r
+        self.clist[i] = self.clist[i+1]
+      end
+      if mode == 4 self.clearFirst() end
+      self.clist[7] = last
+    elif mode == 1 || mode == 3 || mode == 5
+      var first = self.clist[7]
+      # if mode == 3 last = 0 end
+      r = range(6,0,-1)
+      for i:r
+        self.clist[i+1] = self.clist[i]
+      end
+      if mode == 5 first = 0 end
+      self.clist[0] = first
+    # elif mode == 4
+    #   self.colorFromSeed()
+    #   var _clist = self.clist
+    #   var c = 7 - (8 % self.cycles)
+    #   self.clist = [0,0,0,0,0,0,0,0]
+    #   r = range(7,7-c,-1)
+    #   for i:r
+    #     self.clist[i] = _clist[i]
+    #   end
+    # elif mode == 5
+    #   self.colorFromSeed()
+    #   var _clist = self.clist
+    #   var c = 8 % self.cycles
+    #   self.clist = [0,0,0,0,0,0,0,0]
+    #   r = range(0,c)
+    #   for i:r
+    #     self.clist[7-i] = _clist[i]
+    end
+    self.steps += 1
+  end
+
+  def run()
+    self.cycles -= 1
+    if  self.cycles < 0
+      return true
+    else
+      #print("not done",self.cycles)
+      return false
+    end
+  end
+
+end
+
+class ULANIM
+  var cmatrix, clist
+  var strip
+  var animation, delay
+  var ca # ca
+
+  def init()
+    self.strip = Leds(32 * 8, gpio.pin(gpio.WS2812, 32))
+    self.strip.set_bri(256)
+    self.initCMatrix()
+    self.loadAnimation()
+    tasmota.add_fast_loop(/->self.loop())
+    tasmota.add_driver(self)
+  end
+
+  def loop()
+    if self.ca == nil
+      return
+    end
+    if self.delay > 0 #speed/delay
+      self.delay -= 1
+      return
+    end
+    self.draw()
+    self.ca.updateCList()
+    self.nextAnimation()
+  end
+
+  def loadAnimation()
+    self.animation = [ # seed_color, cycles, delay, mode
+    UNANIM(0x1010ff,48,16,2),
+    UNANIM(0x1010ff,0,24,4),
+    UNANIM(0x1010ff,8,8,5),
+    UNANIM(0xff11ff,48,12,2),
+    UNANIM(0xff11ff,8,4,0),
+    UNANIM(0xff11ff,8,8,5),
+    UNANIM(0x0000ff,8,0,2),
+    UNANIM(0x0000ff,7,0,3),
+    UNANIM(0x00ffff,8,2,2),
+    UNANIM(0x00ffff,7,2,3),
+    UNANIM(0x00ff00,8,0,0),
+    UNANIM(0x00ff00,7,1,1),
+    UNANIM(0xffff00,128,20,2),
+    UNANIM(0xffff00,7,20,5),
+    UNANIM(0xff0000,8,0,4),
+    UNANIM(0xff0000,7,1,1),
+    UNANIM(0xffffff,8,0,2),
+    UNANIM(0xffffff,8,1,3)
+    ]
+    self.ca = UNANIM(0,0,0,0)
+    self.delay = 0
+  end
+
+  def nextAnimation()
+    if self.ca.run() == true # true if finished
+      if size(self.animation) == 0
+        print("delete anims",self.animation)
+        self.ca = nil
+        return
+      end
+      self.ca = self.animation[0]
+      self.animation = self.animation[1..]
+      print("## next animation",self.ca)
+    end
+    self.delay = self.ca.delay
+  end
+
+  def draw()
+    var setc = /i,c->self.strip.set_pixel_color(i,c)
+    var cl = self.ca.clist
+    var cm = self.cmatrix
+    var r = 0..255
+    for i:r
+      setc(i,cl[cm[i]])
+    end
+    self.strip.show()
+  end
+
+  def initCMatrix()
+    var offset = [0]
+    self.cmatrix = bytes(-256)
+    for y:0..7
+      for x:0..31
+        for o:offset
+          if x >= o && x < (32 - o)
+            self.cmatrix[32*y + x] = o
+          end
+        end
+      end
+      offset.push(offset[-1]+1)
+    end
+  end
+end
+
+return ULANIM()#-
  - LED driver for Ulanzi clock written in Berry
  - very simple animation in the style of Matrix
 -#
@@ -1690,9 +1886,7 @@ return gpio
 #fake light module for now
 var light = module('light')
 
-light.state =  {'bri': 77, 'hue': 21, 'power': true, 'sat': 140, 'rgb': '4D3223', 'channels': [77, 50, 35]}
-
-light.get = def () return light.state end
+light.get = def () return {'bri': 77, 'hue': 21, 'power': true, 'sat': 140, 'rgb': '4D3223', 'channels': [77, 50, 35]} light.state end
 light.set = def (settings) print(settings) end
 light.gamma10 = def (channel) print(channel) end
 light.gamma8 = def (channel) print(channel) end
@@ -1955,6 +2149,15 @@ def ls(name)
 end
 
 return ls
+#fake mqtt module for now
+var mqtt = module('mqtt')
+
+mqtt.publish = def () end
+mqtt.subscribe = def () end
+mqtt.unsubscribe = def () end
+mqtt.connected = def () return false end
+
+return mqtt
 var persist_module = module("persist")
 
 class Persist
@@ -2188,19 +2391,51 @@ class Tasmota : tasmota_wasm
     return _class.scale_uint(num + from_offset, from_min + from_offset, from_max + from_offset, to_min + to_offset, to_max + to_offset) - to_offset
   end
 
-  # def millis(offset)
-  #   return self._millis + (offset == nil ? 0 : offset)
-  # end
+  def cmd()
+    print("cmd - fake method")
+  end
 
-  # internal debugging function
-  # def set_millis(m)
-  #   self._millis = m
-  # end
+  def yield()
+    print("yield - fake method")
+  end
 
-  # def time_reached(t)
-  #   # naive implementation because the emulator will not run over 20 days
-  #   return (t <= self._millis)
-  # end
+  def rtc(key)
+    import time
+    var ts = time.time()
+    if key
+      return {'local': ts, 'utc': ts, 'timezone': 60, 'restart': ts}[key]
+    else
+      return {'local': ts, 'utc': ts, 'timezone': 60, 'restart': ts}
+    end
+  end
+
+  def time_dump(ts)
+    import time
+    return time.dump(ts)
+  end
+
+  def strftime(sformat,ts)
+    import string
+    var td = self.time_dump(ts)
+    var s = sformat
+    string.replace(s,"%H",str(td["hour"]))
+    string.replace(s,"%M",str(td["min"]))
+    string.replace(s,"%S",str(td["sec"]))
+    string.replace(s,"%Y",str(td["year"]))
+    string.replace(s,"%m",str(td["month"]))
+    string.replace(s,"%d",str(td["day"]))
+    print("fake - strftime ... does not work")
+    return s
+  end
+
+  def read_sensors()
+    return {'ANALOG': {'A1': 2300, 'A1': 2300, 'Illuminance1': 100}}
+  end
+
+  def wifi()
+    print("fake - wifi")
+    return {'mac': 'aa:bb:cc:22:11:03', 'quality': 100, 'rssi': -47, 'ip': '192.168.1.102'}
+  end
 
   # fast_loop() is a trimmed down version of event() called at every Tasmota loop iteration
   # it is optimized to be as fast as possible and reduce overhead
