@@ -53,7 +53,7 @@ web: LIBS      = -lm -ldl
 web: LFLAGS.   =
 web: TARGET    = berry.js
 web: CC        = emcc
-web: EMBED_FILES    = --preload-file tasmota_env --preload-file tasmota  --preload-file env.be@/env.be
+web: EMBED_FILES    = --preload-file tasmota_env --preload-file demos  --preload-file env.be@/env.be
 web: LFLAGS    = -s WASM=1 -s ASYNCIFY \
             	 -s 'ASYNCIFY_IMPORTS=["_js_readbuffer"]'\
 				 -O3 -s SINGLE_FILE=1

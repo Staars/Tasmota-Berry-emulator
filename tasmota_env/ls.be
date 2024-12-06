@@ -2,7 +2,7 @@
 
 def ls(name)
   import os
-  print(os.listdir())
+  print(os.listdir(name))
 end
 
 return ls

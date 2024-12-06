@@ -1,13 +1,3 @@
-# import all Tasmota emulator stuff to be global
-import global
-import load
-import gpio
-import ls
-
-global.tasmota = tasmota_wasm()
-load("tasmota_env/tasmota.be")
-
-load("tasmota_env/classes_for_emulation.be")
 #
 # Example for M5Stack Led Matrix
 # 5 x 5 WS2812
@@ -45,203 +35,7 @@ palette.set_cb(pulse, pulse.set_color)
 
 anim.start()
 #
-print("All good")class UNANIM
-  var color, cycles, delay, mode
-  var clist
-  var steps
-
-  def init(color, cycles, delay, mode)
-    self.color = color
-    self.cycles = cycles
-    self.delay = delay
-    self.mode = mode
-    self.colorFromSeed()
-    self.steps = 0
-  end
-
-  def colorFromSeed()
-    var divider = 8
-    if  self.mode == 2 ||  self.mode == 3
-      divider = 9
-    end
-    var r = (((self.color >> 16) / divider) << 16) & 0xff0000
-    var g = ((((self.color >> 8) & 0xff) / divider) << 8) & 0xff00
-    var b = (((self.color & 0xff) / divider))
-    var step = r | g | b
-    # print(f"{r:x} {g:x} {b:x}  {step:x}")
-    var clist = [self.color,0,0,0,0,0,0,0]
-    var pos = 1..7
-    for i:pos
-      clist[i] = clist[i-1] - step
-    end
-    if self.mode == 2 || self.mode == 3
-      clist = clist[4..7] + clist[4..7].reverse()
-    end
-    self.clist = clist
-    if self.mode == 4
-      self.steps = 8
-      self.updateCList()
-    end
-  end
-
-  def clearFirst()
-    if self.steps < 7
-      var r = 0..(7-self.steps)
-      for i:r
-        self.clist[i] = 0
-      end
-    end
-  end
-
-  def updateCList()
-    var step = self.cycles
-    var mode = self.mode
-    var r
-    if mode == 0 || mode == 2 || mode == 4
-      var last = self.clist[0]
-      r = 0..6
-      for i:r
-        self.clist[i] = self.clist[i+1]
-      end
-      if mode == 4 self.clearFirst() end
-      self.clist[7] = last
-    elif mode == 1 || mode == 3 || mode == 5
-      var first = self.clist[7]
-      # if mode == 3 last = 0 end
-      r = range(6,0,-1)
-      for i:r
-        self.clist[i+1] = self.clist[i]
-      end
-      if mode == 5 first = 0 end
-      self.clist[0] = first
-    # elif mode == 4
-    #   self.colorFromSeed()
-    #   var _clist = self.clist
-    #   var c = 7 - (8 % self.cycles)
-    #   self.clist = [0,0,0,0,0,0,0,0]
-    #   r = range(7,7-c,-1)
-    #   for i:r
-    #     self.clist[i] = _clist[i]
-    #   end
-    # elif mode == 5
-    #   self.colorFromSeed()
-    #   var _clist = self.clist
-    #   var c = 8 % self.cycles
-    #   self.clist = [0,0,0,0,0,0,0,0]
-    #   r = range(0,c)
-    #   for i:r
-    #     self.clist[7-i] = _clist[i]
-    end
-    self.steps += 1
-  end
-
-  def run()
-    self.cycles -= 1
-    if  self.cycles < 0
-      return true
-    else
-      #print("not done",self.cycles)
-      return false
-    end
-  end
-
-end
-
-class ULANIM
-  var cmatrix, clist
-  var strip
-  var animation, delay
-  var ca # ca
-
-  def init()
-    self.strip = Leds(32 * 8, gpio.pin(gpio.WS2812, 32))
-    self.strip.set_bri(256)
-    self.initCMatrix()
-    self.loadAnimation()
-    tasmota.add_fast_loop(/->self.loop())
-    tasmota.add_driver(self)
-  end
-
-  def loop()
-    if self.ca == nil
-      return
-    end
-    if self.delay > 0 #speed/delay
-      self.delay -= 1
-      return
-    end
-    self.draw()
-    self.ca.updateCList()
-    self.nextAnimation()
-  end
-
-  def loadAnimation()
-    self.animation = [ # seed_color, cycles, delay, mode
-    UNANIM(0x1010ff,48,16,2),
-    UNANIM(0x1010ff,0,24,4),
-    UNANIM(0x1010ff,8,8,5),
-    UNANIM(0xff11ff,48,12,2),
-    UNANIM(0xff11ff,8,4,0),
-    UNANIM(0xff11ff,8,8,5),
-    UNANIM(0x0000ff,8,0,2),
-    UNANIM(0x0000ff,7,0,3),
-    UNANIM(0x00ffff,8,2,2),
-    UNANIM(0x00ffff,7,2,3),
-    UNANIM(0x00ff00,8,0,0),
-    UNANIM(0x00ff00,7,1,1),
-    UNANIM(0xffff00,128,20,2),
-    UNANIM(0xffff00,7,20,5),
-    UNANIM(0xff0000,8,0,4),
-    UNANIM(0xff0000,7,1,1),
-    UNANIM(0xffffff,8,0,2),
-    UNANIM(0xffffff,8,1,3)
-    ]
-    self.ca = UNANIM(0,0,0,0)
-    self.delay = 0
-  end
-
-  def nextAnimation()
-    if self.ca.run() == true # true if finished
-      if size(self.animation) == 0
-        print("delete anims",self.animation)
-        self.ca = nil
-        return
-      end
-      self.ca = self.animation[0]
-      self.animation = self.animation[1..]
-      print("## next animation",self.ca)
-    end
-    self.delay = self.ca.delay
-  end
-
-  def draw()
-    var setc = /i,c->self.strip.set_pixel_color(i,c)
-    var cl = self.ca.clist
-    var cm = self.cmatrix
-    var r = 0..255
-    for i:r
-      setc(i,cl[cm[i]])
-    end
-    self.strip.show()
-  end
-
-  def initCMatrix()
-    var offset = [0]
-    self.cmatrix = bytes(-256)
-    for y:0..7
-      for x:0..31
-        for o:offset
-          if x >= o && x < (32 - o)
-            self.cmatrix[32*y + x] = o
-          end
-        end
-      end
-      offset.push(offset[-1]+1)
-    end
-  end
-end
-
-return ULANIM()#-
+print("All good")#-
  - LED driver for Ulanzi clock written in Berry
  - very simple animation in the style of Matrix
 -#
@@ -339,7 +133,209 @@ class MATRIX_ANIM
   end
 end
 
-var a =  MATRIX_ANIM()# Leds
+var a =  MATRIX_ANIM()class UNANIM
+  var color, cycles, delay, mode
+  var clist, clist_initial
+  var steps
+
+  def init(color, cycles, delay, mode)
+    self.color = color
+    self.cycles = cycles
+    self.delay = delay
+    self.mode = mode
+    self.colorFromSeed()
+    self.clist = [0,0,0,0,0,0,0,0]
+    self.steps = 0
+  end
+
+  def colorFromSeed()
+    var divider = 8
+    if  self.mode == 2 ||  self.mode == 3
+      divider = 9
+    end
+    var r = (((self.color >> 16) / divider) << 16) & 0xff0000
+    var g = ((((self.color >> 8) & 0xff) / divider) << 8) & 0xff00
+    var b = (((self.color & 0xff) / divider))
+    var step = r | g | b
+
+    var clist = [self.color,0,0,0,0,0,0,0]
+    var pos = 1..7
+    for i:pos
+      clist[i] = clist[i-1] - step
+    end
+    if self.mode == 2 || self.mode == 3
+      clist = clist[4..7] + clist[4..7].reverse()
+    end
+    self.clist_initial = clist
+    if self.mode == 4
+      self.steps = 8
+      self.updateCList()
+    end
+  end
+
+  def clearFirst()
+    if self.steps < 8
+      var r = 0..(7-self.steps)
+      for i:r
+        self.clist[i] = 0
+      end
+    end
+  end
+
+  def rotate_up()
+    var last = self.clist_initial[0]
+    var r = 0..6
+    for i:r
+      self.clist_initial[i] = self.clist_initial[i+1]
+    end
+    self.clist_initial[7] = last
+    self.clist = self.clist_initial.copy()
+  end
+
+  def rotate_down()
+    var first = self.clist_initial[7]
+    r = range(6,0,-1)
+    for i:r
+      self.clist_initial[i+1] = self.clist_initial[i]
+    end
+    self.clist_initial[0] = first
+    self.clist = self.clist_initial.copy()
+  end
+
+
+  def updateCList()
+    var step = self.cycles
+    var mode = self.mode
+    if mode == 0 || mode == 2 || mode == 4
+      self.rotate_up()
+      if mode == 4 self.clearFirst() end
+    elif mode == 1 || mode == 3 || mode == 5
+      self.rotate_down()
+      if mode == 5 self.clist[0] = 0 end
+    end
+    self.steps += 1
+  end
+
+  def run()
+    self.cycles -= 1
+    if  self.cycles < 0
+      return true
+    else
+      return false
+    end
+  end
+
+end
+
+class ULANIM
+  var cmatrix
+  var strip
+  var animation, delay
+  var ca # current_animation
+
+  def init()
+    self.strip = Leds(32 * 8, gpio.pin(gpio.WS2812, 32))
+    self.strip.set_bri(256)
+    self.initCMatrix()
+    self.loadAnimation()
+    tasmota.add_fast_loop(/->self.loop())
+    tasmota.add_driver(self)
+  end
+
+  def loop()
+    if self.ca == nil
+      return
+    end
+    if self.delay > 0 #speed/delay
+      self.delay -= 1
+      return
+    end
+    self.draw()
+    self.ca.updateCList()
+    self.nextAnimation()
+  end
+
+  def loadAnimation()
+    self.animation = [ # seed_color, cycles, delay, mode
+    UNANIM(0x1010ff,48,16,2),
+    UNANIM(0x1010ff,16,4,4),
+    UNANIM(0x1010ff,8,8,5),
+    UNANIM(0xff11ff,48,12,2),
+    UNANIM(0xff11ff,16,4,0),
+    UNANIM(0xff11ff,8,8,5),
+    UNANIM(0x0000ff,8,0,2),
+    UNANIM(0x0000ff,7,0,3),
+    UNANIM(0x00ffff,8,2,2),
+    UNANIM(0x00ffff,7,2,3),
+    UNANIM(0x00ff00,8,0,0),
+    UNANIM(0x00ff00,7,1,1),
+    UNANIM(0xffff00,64,20,2),
+    UNANIM(0xffff00,7,20,5),
+    UNANIM(0xff0000,8,1,4),
+    UNANIM(0xff0000,7,1,1),
+    UNANIM(0xffffff,8,1,2),
+    UNANIM(0xffffff,8,1,3)
+    ]
+    self.ca = UNANIM(0,0,0,0)
+    self.delay = 0
+  end
+
+  def nextAnimation()
+    if self.ca.run() == true # true if finished
+      if size(self.animation) == 0
+        print("delete anims",self.animation)
+        self.ca = nil
+        return
+      end
+      self.ca = self.animation[0]
+      self.animation = self.animation[1..]
+      print("## next animation",self.ca)
+    end
+    self.delay = self.ca.delay
+  end
+
+  def draw()
+    var setc = /i,c->self.strip.set_pixel_color(i,c)
+    var cl = self.ca.clist
+    var cm = self.cmatrix
+    var r = 0..255
+    for i:r
+      setc(i,cl[cm[i]])
+    end
+    self.strip.show()
+  end
+
+  def initCMatrix()
+    var offset = [0]
+    self.cmatrix = bytes(-256)
+    for y:0..7
+      for x:0..31
+        for o:offset
+          if x >= o && x < (32 - o)
+            self.cmatrix[32*y + x] = o
+          end
+        end
+      end
+      offset.push(offset[-1]+1)
+    end
+  end
+end
+
+return ULANIM()# import all Tasmota emulator stuff to be global
+import global
+import load
+import gpio
+import ls
+import la
+import light
+
+
+global.tasmota = tasmota_wasm()
+load("tasmota_env/trigger_class.be")
+load("tasmota_env/tasmota.be")
+
+load("tasmota_env/classes_for_emulation.be")
+# Leds
 
 
 class Leds
@@ -1883,6 +1879,13 @@ gpio.pin = def () return 0 end
 gpio.WS2812 = 1
 
 return gpio
+# la()
+
+def la()
+  load("autoexec.be")
+end
+
+return la
 #fake light module for now
 var light = module('light')
 
@@ -2145,7 +2148,7 @@ return load
 
 def ls(name)
   import os
-  print(os.listdir())
+  print(os.listdir(name))
 end
 
 return ls
@@ -2322,6 +2325,10 @@ class Tasmota : tasmota_wasm
   # var _millis           # emulate millis from Tasmota
   var _fl               # fast_loop
   var _drivers
+  var _rules
+  var _timers         # holds both timers and cron
+  var _crons
+  var _ccmd
 
   # def init()
   #   self._millis = 1
@@ -2391,8 +2398,26 @@ class Tasmota : tasmota_wasm
     return _class.scale_uint(num + from_offset, from_min + from_offset, from_max + from_offset, to_min + to_offset, to_max + to_offset) - to_offset
   end
 
-  def cmd()
+  def cmd(c)
     print("cmd - fake method")
+    import string
+    if string.find(c,"so") == 0
+      var s = string.replace(c,"so","")
+      s = f"SetOption{int(s)}"
+      return {s: 'ON'}
+    end
+  end
+
+  def add_rule()
+    print("add_rule - fake method")
+  end
+
+  def set_timer(delay,f,id)
+    self.check_not_method(f)
+    if self._timers == nil
+      self._timers=[]
+    end
+    self._timers.push(Trigger(self.millis(delay),f,id))
   end
 
   def yield()
@@ -2434,7 +2459,7 @@ class Tasmota : tasmota_wasm
 
   def wifi()
     print("fake - wifi")
-    return {'mac': 'aa:bb:cc:22:11:03', 'quality': 100, 'rssi': -47, 'ip': '192.168.1.102'}
+    return {'mac': 'aa:bb:cc:22:11:03', 'quality': 100, 'rssi': -47, 'ip': '192.168.1.102', 'up': false}
   end
 
   # fast_loop() is a trimmed down version of event() called at every Tasmota loop iteration
@@ -2606,7 +2631,51 @@ import Leds_frame
 
 global.tasmota = Tasmota()
 return tasmota
-#@ solidify:uuid
+#- Native code used for testing and code solidification -#
+#- Do not use it directly -#
+
+#@ solidify:Trigger
+
+class Trigger
+    var trig, f, id
+    var o             # optional object
+  
+    # trig: trigger of the event, either timestamp (int) or a rule matcher instance
+    # f: function or closure to call
+    # id: (any) identifier to allow removal of a specific trigger
+    # o: (instance, optional) instance implementing `timer_reached(trig)`
+    #    this is used to implement cron with a specific method for matching time reached
+    def init(trig, f, id, o)
+      self.trig = trig
+      self.f = f
+      self.id = id
+      self.o = o
+    end
+  
+    def tostring()
+      return format("<instance: %s(%s, %s, %s)", str(classof(self)),
+                str(self.trig), str(self.f), str(self.id))
+    end
+  
+    ###########################################################################################
+    # For cron triggers only
+    ###########################################################################################
+    # next() returns the next trigger, or 0 if rtc is invalid, or nil if no more
+    def next()
+      if self.o
+        return self.o.next()
+      end
+    end
+    
+    # is the time of triggering reached?
+    def time_reached()
+      if self.o && self.trig > 0
+        return self.o.time_reached(self.trig)
+      end
+      return false
+    end
+  end
+  #@ solidify:uuid
 uuid = module("uuid")
 uuid.uuid4 = def ()
   import math
