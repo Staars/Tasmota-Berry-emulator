@@ -6,6 +6,10 @@ class Tasmota : tasmota_wasm
   # var _millis           # emulate millis from Tasmota
   var _fl               # fast_loop
   var _drivers
+  var _rules
+  var _timers         # holds both timers and cron
+  var _crons
+  var _ccmd
 
   # def init()
   #   self._millis = 1
@@ -75,8 +79,26 @@ class Tasmota : tasmota_wasm
     return _class.scale_uint(num + from_offset, from_min + from_offset, from_max + from_offset, to_min + to_offset, to_max + to_offset) - to_offset
   end
 
-  def cmd()
+  def cmd(c)
     print("cmd - fake method")
+    import string
+    if string.find(c,"so") == 0
+      var s = string.replace(c,"so","")
+      s = f"SetOption{int(s)}"
+      return {s: 'ON'}
+    end
+  end
+
+  def add_rule()
+    print("add_rule - fake method")
+  end
+
+  def set_timer(delay,f,id)
+    self.check_not_method(f)
+    if self._timers == nil
+      self._timers=[]
+    end
+    self._timers.push(Trigger(self.millis(delay),f,id))
   end
 
   def yield()
@@ -118,7 +140,7 @@ class Tasmota : tasmota_wasm
 
   def wifi()
     print("fake - wifi")
-    return {'mac': 'aa:bb:cc:22:11:03', 'quality': 100, 'rssi': -47, 'ip': '192.168.1.102'}
+    return {'mac': 'aa:bb:cc:22:11:03', 'quality': 100, 'rssi': -47, 'ip': '192.168.1.102', 'up': false}
   end
 
   # fast_loop() is a trimmed down version of event() called at every Tasmota loop iteration
