@@ -22,6 +22,7 @@
                 readbuffer = "",
                 ws2812ledbuffer = "",
                 led_canvas,
+                led_strip = {"w":0,"h":0},
                 led_canvas_ctx;
             eb = (s) => document.getElementById(s);
             qs = (s) => document.querySelector(s);
@@ -213,15 +214,23 @@
             function drawLED(msg){
                 let leds_left = msg.length/6
                 var rows = Math.ceil(msg.length/32);
+                if(led_strip.h != 0){
+                    rows = led_strip.h * 6;
+                }
+                var columns = 32;
+                if(led_strip.w != 0){
+                    columns = led_strip.w;
+                    led_canvas.width = columns * 25;
+                }
                 var left2right = true;
                 led_canvas.height = rows * 25 / 6;
                 const width = led_canvas.width - 25;
                 for(let row = 0; row < rows; row += 1){
-                    for (let i = 0; i < 32; i += 1) {
+                    for (let i = 0; i < columns; i += 1) {
                         if(leds_left == 0){
                             return;
                         }
-                        led_canvas_ctx.fillStyle = `#${msg.substring((i+(row*32)) * 6,((i+(row*32))*6)+6)}`;
+                        led_canvas_ctx.fillStyle = `#${msg.substring((i+(row*columns)) * 6,((i+(row*columns))*6)+6)}`;
                         if(left2right){
                             led_canvas_ctx.fillRect((i * 25) + 1 , (row * 25) + 1, 23, 23);
                         } else {
@@ -266,8 +275,22 @@
                 return prompt;
             }
 
+            function parseLedConfig(jsonString){
+                var j = JSON.parse(jsonString);
+                if("w" in j){
+                    led_strip.w = j.w;
+                }
+                if("h" in j){
+                    led_strip.h = j.h;
+                }
+            }
+
             function writeLedBuffer(msg){
-                drawLED(msg);
+                if(msg.charAt(0) == '_'){
+                    parseLedConfig(msg.subsr(1));
+                } else {
+                    drawLED(msg);
+                }
             }
         </script>
         <style>
