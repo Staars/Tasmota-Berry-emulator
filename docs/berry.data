@@ -133,7 +133,7 @@ class MATRIX_ANIM
   end
 end
 
-var a =  MATRIX_ANIM()class UNANIM
+var a =  MATRIX_ANIM()class UANIM
   var color, cycles, delay, mode
   var clist, clist_initial
   var steps
@@ -257,26 +257,26 @@ class ULANIM
 
   def loadAnimation()
     self.animation = [ # seed_color, cycles, delay, mode
-    UNANIM(0x1010ff,48,16,2),
-    UNANIM(0x1010ff,16,4,4),
-    UNANIM(0x1010ff,8,8,5),
-    UNANIM(0xff11ff,48,12,2),
-    UNANIM(0xff11ff,16,4,0),
-    UNANIM(0xff11ff,8,8,5),
-    UNANIM(0x0000ff,8,0,2),
-    UNANIM(0x0000ff,7,0,3),
-    UNANIM(0x00ffff,8,2,2),
-    UNANIM(0x00ffff,7,2,3),
-    UNANIM(0x00ff00,8,0,0),
-    UNANIM(0x00ff00,7,1,1),
-    UNANIM(0xffff00,64,20,2),
-    UNANIM(0xffff00,7,20,5),
-    UNANIM(0xff0000,8,1,4),
-    UNANIM(0xff0000,7,1,1),
-    UNANIM(0xffffff,8,1,2),
-    UNANIM(0xffffff,8,1,3)
+    UANIM(0x1010ff,48,16,2),
+    UANIM(0x1010ff,16,4,4),
+    UANIM(0x1010ff,8,8,5),
+    UANIM(0xff11ff,48,12,2),
+    UANIM(0xff11ff,16,4,0),
+    UANIM(0xff11ff,8,8,5),
+    UANIM(0x0000ff,8,0,2),
+    UANIM(0x0000ff,7,0,3),
+    UANIM(0x00ffff,8,2,2),
+    UANIM(0x00ffff,7,2,3),
+    UANIM(0x00ff00,8,0,0),
+    UANIM(0x00ff00,7,1,1),
+    UANIM(0xffff00,64,20,2),
+    UANIM(0xffff00,7,20,5),
+    UANIM(0xff0000,8,1,4),
+    UANIM(0xff0000,7,1,1),
+    UANIM(0xffffff,8,1,2),
+    UANIM(0xffffff,8,1,3)
     ]
-    self.ca = UNANIM(0,0,0,0)
+    self.ca = UANIM(0,0,0,0)
     self.delay = 0
   end
 
@@ -659,6 +659,103 @@ class Leds
           self.strip.set_pixel_color(x * self.w + self.h - y - 1 + self.offset, col, bri)
         else
           self.strip.set_pixel_color(x * self.w + y + self.offset, col, bri)
+        end
+      end
+
+      def scroll(direction, outshift, inshift) # 0 - up, 1 - left, 2 - down, 3 - right ; outshift mandatory, inshift optional
+        var buf = self.pix_buffer
+        var h = self.h
+        var sz = self.w * 3 # row size in bytes
+        var pos
+        if direction%2 == 0 #up/down
+          if direction == 0 #up
+            outshift.setbytes(0,(buf[0..sz-1]).reverse(0,nil,3))
+            var line = 0
+            while line < (h-1)
+              pos = 0
+              var offset_dst = line * sz
+              var offset_src = ((line+2) * sz) - 3
+              while pos < sz
+                var dst = pos + offset_dst
+                var src = offset_src - pos
+                buf[dst] = buf[src]
+                buf[dst+1] = buf[src+1]
+                buf[dst+2] = buf[src+2]
+                pos += 3
+              end
+              line += 1
+            end
+            var lastline = inshift ? inshift : outshift
+            if h%2 == 1
+              lastline.reverse(0,nil,3)
+            end
+            buf.setbytes((h-1) * sz, lastline)
+          else # down
+            outshift.setbytes(0,(buf[size(buf)-sz..]).reverse(0,nil,3))
+            var line = h - 1
+            while line > 0
+              buf.setbytes(line * sz,(buf[(line-1) * sz..line * sz-1]).reverse(0,nil,3))
+              line -= 1
+            end
+            var lastline = inshift ? inshift : outshift
+            if h%2 == 1
+              lastline.reverse(0,nil,3)
+            end
+            buf.setbytes(0, lastline)
+          end
+        else # left/right
+          var line = 0
+          var step = 3
+          if direction == 3 # right
+            step *= -1
+          end
+          while line < h
+            pos = line * sz
+            if step > 0
+                var line_end = pos + sz - step
+                outshift[(line * 3)] = buf[pos]
+                outshift[(line * 3) + 1] = buf[pos+1]
+                outshift[(line * 3) + 2] = buf[pos+2]
+                while pos < line_end
+                  buf[pos] = buf[pos+3]
+                  buf[pos+1] = buf[pos+4]
+                  buf[pos+2] = buf[pos+5]
+                  pos += step
+                end
+                if inshift == nil
+                  buf[line_end] = outshift[(line * 3)]
+                  buf[line_end+1] = outshift[(line * 3) + 1]
+                  buf[line_end+2] = outshift[(line * 3) + 2]
+                else
+                  buf[line_end] = inshift[(line * 3)]
+                  buf[line_end+1] = inshift[(line * 3) + 1]
+                  buf[line_end+2] = inshift[(line * 3) + 2]
+                end
+              else
+                var line_end = pos
+                pos = pos + sz + step
+                outshift[(line * 3)] = buf[pos]
+                outshift[(line * 3) + 1] = buf[pos+1]
+                outshift[(line * 3) + 2] = buf[pos+2]
+                while pos > line_end
+                  buf[pos] = buf[pos-3]
+                  buf[pos+1] = buf[pos-2]
+                  buf[pos+2] = buf[pos-1]
+                  pos += step
+                end
+                if inshift == nil
+                  buf[line_end] = outshift[(line * 3)]
+                  buf[line_end+1] = outshift[(line * 3) + 1]
+                  buf[line_end+2] = outshift[(line * 3) + 2]
+                else
+                  buf[line_end] = inshift[(line * 3)]
+                  buf[line_end+1] = inshift[(line * 3) + 1]
+                  buf[line_end+2] = inshift[(line * 3) + 2]
+                end
+              end
+              step *= -1
+              line += 1
+          end
         end
       end
     end

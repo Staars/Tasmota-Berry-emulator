@@ -276,7 +276,7 @@
             }
 
             function parseLedConfig(jsonString){
-                var j = JSON.parse(jsonString);
+                var j = JSON.parse(jsonString.substr(1).replace("\\",""));
                 if("w" in j){
                     led_strip.w = j.w;
                 }
@@ -287,7 +287,7 @@
 
             function writeLedBuffer(msg){
                 if(msg.charAt(0) == '_'){
-                    parseLedConfig(msg.subsr(1));
+                    parseLedConfig(msg);
                 } else {
                     drawLED(msg);
                 }
