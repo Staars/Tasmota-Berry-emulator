@@ -190,9 +190,10 @@
                             if (file) {
                                 let reader = new FileReader();
                                 reader.onload = (e) => {
-                                FS.writeFile(file.name, e.target.result);
+                                var bin_data = new Uint8Array(e.target.result);
+                                FS.writeFile(file.name, bin_data);
                                 };
-                                reader.readAsText(file);
+                                reader.readAsArrayBuffer(file);
                             }
                         }
                     });
