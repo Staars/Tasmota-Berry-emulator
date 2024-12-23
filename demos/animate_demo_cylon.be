@@ -6,8 +6,8 @@ import animate
 
 var strip = Leds(5 * 5, gpio.pin(gpio.WS2812, 0))
 var anim = animate.core(strip)
-global._strip.set_bri(255)          # set max brightness
-global._strip.set_gamma(false)      # disable gamma
+strip.set_bri(255)          # set max brightness
+
 anim.set_back_color(0x000000)
 var pulse = animate.pulse(0xFF0000, 3, 2)
 var osc1 = animate.oscillator(0, 23, 3000, animate.TRIANGLE)

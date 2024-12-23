@@ -316,13 +316,13 @@ class Leds
       end
 
       def set_matrix_pixel_color(x, y, col, bri)
-        if (bri == nil)   bri = self.bri    end
-        if self.alternate && x % 2
-          # reversed line
-          self.strip.set_pixel_color(x * self.w + self.h - y - 1 + self.offset, col, bri)
-        else
-          self.strip.set_pixel_color(x * self.w + y + self.offset, col, bri)
+        # if y is odd, reverse the order of y
+        if y & 1 == 1
+          x = self.w - x - 1
         end
+        
+        # self.leds.call_native(10, y * self.col_size + x, self.prev_corrected_color)
+        self.strip.set_pixel_color(y * self.w + x, col, bri)     
       end
 
       def scroll(direction, outshift, inshift) # 0 - up, 1 - left, 2 - down, 3 - right ; outshift mandatory, inshift optional
