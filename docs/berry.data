@@ -1973,7 +1973,11 @@ var gpio = module('gpio')
 
 gpio.pin = def () return 0 end
 
+gpio.pin_mode = def() end
+gpio.digital_read = def() return 0 end
+
 gpio.WS2812 = 1
+gpio.INPUT_PULLUP = 3 # some random value
 
 return gpio
 # la()
@@ -2540,13 +2544,12 @@ class Tasmota : tasmota_wasm
     import string
     var td = self.time_dump(ts)
     var s = sformat
-    string.replace(s,"%H",str(td["hour"]))
-    string.replace(s,"%M",str(td["min"]))
-    string.replace(s,"%S",str(td["sec"]))
-    string.replace(s,"%Y",str(td["year"]))
-    string.replace(s,"%m",str(td["month"]))
-    string.replace(s,"%d",str(td["day"]))
-    print("fake - strftime ... does not work")
+    s = string.replace(s,"%H",format("%02i",td["hour"]))
+    s = string.replace(s,"%M",format("%02i",td["min"]))
+    s = string.replace(s,"%S",format("%02i",td["sec"]))
+    s = string.replace(s,"%Y",format("%02i",td["year"]))
+    s = string.replace(s,"%m",format("%02i",td["month"]))
+    s = string.replace(s,"%d",format("%02i",td["day"]))
     return s
   end
 
