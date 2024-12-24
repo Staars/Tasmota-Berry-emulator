@@ -213,17 +213,17 @@
             }
 
             function drawLED(msg){
+                eb("slider_section").style.visibility = "unset"
                 let leds_left = msg.length/6
-                var rows = Math.ceil(msg.length/32);
-                if(led_strip.h != 0){
-                    rows = led_strip.h * 6;
-                }
                 var columns = 32;
                 if(led_strip.w != 0){
                     columns = led_strip.w;
                     led_canvas.width = columns * 25;
                 }
+                var rows = Math.ceil(msg.length/columns/6);
+                eb("matrix_w").labels[0].innerText = ">>" + leds_left + "\n" + columns + " x " + rows;
                 var left2right = true;
+                rows *= 6; // 6 chars per pixel
                 led_canvas.height = rows * 25 / 6;
                 const width = led_canvas.width - 25;
                 for(let row = 0; row < rows; row += 1){
@@ -433,6 +433,19 @@
                 </noscript>
                 <h3>Berry in a Browser</h3>
                 <h2>Tasmota emulator</h2>
+            </div>
+            <div id="slider_section" style="visibility: collapse;">
+                <input type="range" id="matrix_w" name="matrix_w" min="1" max="64" list="pixel_width" onchange="led_strip.w = this.value;"></input>
+                <label for="matrix_w">32</label>
+                <datalist id="pixel_width">
+                    <select></select>
+                    <option value="1"></option>
+                    <option value="8"></option>
+                    <option value="16"></option>
+                    <option value="32"></option>
+                    <option value="48"></option>
+                    <option value="64"></option>
+                </datalist>
             </div>
             <canvas id="canvas" width="800" height="150" style="display: block; margin-left: auto; margin-right: auto;"></canvas>
             <style>
