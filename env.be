@@ -12,3 +12,4 @@ load("tasmota_env/trigger_class.be")
 load("tasmota_env/tasmota.be")
 
 load("tasmota_env/classes_for_emulation.be")
+load("tasmota_env/wc.be")
