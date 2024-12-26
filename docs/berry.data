@@ -2672,17 +2672,17 @@ class Tasmota : tasmota_wasm
 
   def event(event_type, cmd, idx, payload, raw)
     import introspect
-    # next section does beak emulation for yet unknown reason
-    # if event_type=='every_50ms'
-    #   self.run_deferred()
-    # end  #- first run deferred events -#
-
-    # if event_type=='every_250ms'
-    #   self.run_cron()
-    # end
-
     var done = false
     var keep_going = false    # if true, we continue dispatch event if done == true (for mqtt_data)
+
+    if event_type=='every_50ms'
+      self.run_deferred()
+      keep_going = true # needed in emulator
+    end  #- first run deferred events -#
+
+    # if event_type=='every_250ms'
+    #   self.run_cron() # not implemented in emulator yet
+    # end
 
     if event_type == 'mqtt_data'
       keep_going = true
