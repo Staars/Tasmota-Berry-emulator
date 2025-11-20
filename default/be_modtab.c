@@ -242,10 +242,12 @@ be_extern_native_class(lv_clock_icon);
 be_extern_native_class(int64);
 #if defined(__EMSCRIPTEN__)
 be_extern_native_class(tasmota_wasm);
+be_extern_native_class(pixmat);
 #endif
 BERRY_LOCAL bclass_array be_class_table = {
 #if defined(TASMOTA) || defined(__EMSCRIPTEN__)
     &be_native_class(tasmota_wasm),
+    &be_native_class(pixmat),
 #endif 
 #if defined(TASMOTA)
     /* first list are direct classes */
