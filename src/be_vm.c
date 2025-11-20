@@ -463,6 +463,25 @@ static void make_range(bvm *vm, bvalue lower, bvalue upper)
     vm->top -= 3;
 }
 
+static void multiply_str(bvm *vm, bvalue *a_value, bvalue *count)
+{
+    bint n = 0;
+    bstring *result;
+    bstring *str = var_tostr(a_value);
+    
+    /* Convert count to integer */
+    if (var_isint(count)) {
+        n = var_toint(count);
+    } else if (var_isbool(count)) {
+        n = var_tobool(count) ? 1 : 0;
+    } else {
+        binop_error(vm, "*", a_value, count);
+    }
+    
+    result = be_strmul(vm, str, n);
+    var_setstr(vm->top, result);
+}
+
 static void connect_str(bvm *vm, bstring *a, bvalue *b)
 {
     bstring *s;
@@ -591,7 +610,7 @@ newframe: /* a new call frame */
             if (var_isstr(b)) {
                 bstring *name = var_tostr(b);
                 int idx = be_global_find(vm, name);
-                if (idx > -1) {
+                if (idx >= 0) {
                     *v = *be_global_var(vm, idx);
                 } else {
                     vm_error(vm, "attribute_error", "'%s' undeclared", str(name));
@@ -671,17 +690,8 @@ newframe: /* a new call frame */
             if (var_isint(a) && var_isint(b)) {
                 var_setint(dst, ibinop(-, a, b));
             } else if (var_isnumber(a) && var_isnumber(b)) {
-#if CONFIG_IDF_TARGET_ESP32    /* when running on ESP32 in IRAM, there is a bug in early chip revision */
-                union bvaldata x, y;        // TASMOTA workaround for ESP32 rev0 bug
-                x.i = a->v.i;
-                if (var_isint(a)) { x.r = (breal) x.i; }
-                y.i = b->v.i;
-                if (var_isint(b)) { y.r = (breal) y.i; }
-                var_setreal(dst, x.r - y.r);
-#else  // CONFIG_IDF_TARGET_ESP32
                 breal x = var2real(a), y = var2real(b);
                 var_setreal(dst, x - y);
-#endif // CONFIG_IDF_TARGET_ESP32
             } else if (var_isinstance(a)) {
                 ins_binop(vm, "-", ins);
             } else {
@@ -694,17 +704,12 @@ newframe: /* a new call frame */
             if (var_isint(a) && var_isint(b)) {
                 var_setint(dst, ibinop(*, a, b));
             } else if (var_isnumber(a) && var_isnumber(b)) {
-#if CONFIG_IDF_TARGET_ESP32    /* when running on ESP32 in IRAM, there is a bug in early chip revision */
-                union bvaldata x, y;        // TASMOTA workaround for ESP32 rev0 bug
-                x.i = a->v.i;
-                if (var_isint(a)) { x.r = (breal) x.i; }
-                y.i = b->v.i;
-                if (var_isint(b)) { y.r = (breal) y.i; }
-                var_setreal(dst, x.r * y.r);
-#else  // CONFIG_IDF_TARGET_ESP32
                 breal x = var2real(a), y = var2real(b);
                 var_setreal(dst, x * y);
-#endif // CONFIG_IDF_TARGET_ESP32
+            } else if (var_isstr(a) && (var_isint(b) || var_isbool(b))) {
+                multiply_str(vm, a, b);
+                reg = vm->reg;
+                *RA() = *vm->top; /* copy result to R(A) */
             } else if (var_isinstance(a)) {
                 ins_binop(vm, "*", ins);
             } else {
@@ -722,23 +727,12 @@ newframe: /* a new call frame */
                     var_setint(dst, x / y);
                 }
             } else if (var_isnumber(a) && var_isnumber(b)) {
-#if CONFIG_IDF_TARGET_ESP32    /* when running on ESP32 in IRAM, there is a bug in early chip revision */
-                union bvaldata x, y;        // TASMOTA workaround for ESP32 rev0 bug
-                x.i = a->v.i;
-                if (var_isint(a)) { x.r = (breal) x.i; }
-                y.i = b->v.i;
-                if (var_isint(b)) { y.r = (breal) y.i; }
-                if (y.r == cast(breal, 0)) {
-                    vm_error(vm, "divzero_error", "division by zero");
-                }
-                var_setreal(dst, x.r / y.r);
-#else  // CONFIG_IDF_TARGET_ESP32
                 breal x = var2real(a), y = var2real(b);
                 if (y == cast(breal, 0)) {
                     vm_error(vm, "divzero_error", "division by zero");
+                } else {
+                    var_setreal(dst, x / y);
                 }
-                var_setreal(dst, x / y);
-#endif // CONFIG_IDF_TARGET_ESP32
             } else if (var_isinstance(a)) {
                 ins_binop(vm, "/", ins);
             } else {
@@ -749,18 +743,19 @@ newframe: /* a new call frame */
         opcase(MOD): {
             bvalue *dst = RA(), *a = RKB(), *b = RKC();
             if (var_isint(a) && var_isint(b)) {
-                var_setint(dst, ibinop(%, a, b));
+                bint x = var_toint(a), y = var_toint(b);
+                if (y == 0) {
+                    vm_error(vm, "divzero_error", "division by zero");
+                } else {
+                    var_setint(dst, x % y);
+                }
             } else if (var_isnumber(a) && var_isnumber(b)) {
-#if CONFIG_IDF_TARGET_ESP32    /* when running on ESP32 in IRAM, there is a bug in early chip revision */
-                union bvaldata x, y;        // TASMOTA workaround for ESP32 rev0 bug
-                x.i = a->v.i;
-                if (var_isint(a)) { x.r = (breal) x.i; }
-                y.i = b->v.i;
-                if (var_isint(b)) { y.r = (breal) y.i; }
-                var_setreal(dst, mathfunc(fmod)(x.r, y.r));
-#else  // CONFIG_IDF_TARGET_ESP32
-                var_setreal(dst, mathfunc(fmod)(var_toreal(a), var_toreal(b)));
-#endif // CONFIG_IDF_TARGET_ESP32
+                breal x = var2real(a), y = var2real(b);
+                if (y == cast(breal, 0)) {
+                    vm_error(vm, "divzero_error", "division by zero");
+                } else {
+                    var_setreal(dst, mathfunc(fmod)(x, y));
+                }
             } else if (var_isinstance(a)) {
                 ins_binop(vm, "%", ins);
             } else {
@@ -961,7 +956,7 @@ newframe: /* a new call frame */
                     }
                 } else if (var_isclass(a)) {
                     /* in this case we have a class in a static or non-static member */
-                    /* it's always treated like a statif function */
+                    /* it's always treated like a static function */
                     a[1] = result;
                     var_settype(a, NOT_METHOD);
                 } else {
@@ -1393,11 +1388,6 @@ BERRY_API void be_set_obs_hook(bvm *vm, bobshook hook)
     (void)hook;     /* avoid comiler warning */
 
     vm->obshook = hook;
-}
-
-BERRY_API void be_set_obs_micros(bvm *vm, bmicrosfnct micros)
-{
-    vm->microsfnct = micros;
 }
 
 BERRY_API void be_set_ctype_func_hanlder(bvm *vm, bctypefunc handler)

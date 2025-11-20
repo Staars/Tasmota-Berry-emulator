@@ -203,6 +203,38 @@ static int read_oct(blexer *lexer, const char *src)
     return c;
 }
 
+char* be_load_unicode(char *dst, const char *src)
+{
+    int ucode = 0, i = 4;
+    while (i--) {
+        int ch = *src++;
+        if (ch >= '0' && ch <= '9') {
+            ucode = (ucode << 4) | (ch - '0');
+        } else if (ch >= 'A' && ch <= 'F') {
+            ucode = (ucode << 4) | (ch - 'A' + 0x0A);
+        } else if (ch >= 'a' && ch <= 'f') {
+            ucode = (ucode << 4) | (ch - 'a' + 0x0A);
+        } else {
+            return NULL;
+        }
+    }
+    /* convert unicode to utf8 */
+    if (ucode < 0x007F) {
+        /* unicode: 0000 - 007F -> utf8: 0xxxxxxx */
+        *dst++ = (char)(ucode & 0x7F);
+    } else if (ucode < 0x7FF) {
+        /* unicode: 0080 - 07FF -> utf8: 110xxxxx 10xxxxxx */
+        *dst++ = (char)(((ucode >> 6) & 0x1F) | 0xC0);
+        *dst++ = (char)((ucode & 0x3F) | 0x80);
+    } else {
+        /* unicode: 0800 - FFFF -> utf8: 1110xxxx 10xxxxxx 10xxxxxx */
+        *dst++ = (char)(((ucode >> 12) & 0x0F) | 0xE0);
+        *dst++ = (char)(((ucode >> 6) & 0x03F) | 0x80);
+        *dst++ = (char)((ucode & 0x3F) | 0x80);
+    }
+    return dst;
+}
+
 static void tr_string(blexer *lexer)
 {
     char *dst, *src, *end;
@@ -215,32 +247,42 @@ static void tr_string(blexer *lexer)
             be_lexerror(lexer, "unfinished string");
             break;
         case '\\':
-            switch (*src) {
-            case 'a': c = '\a'; break;
-            case 'b': c = '\b'; break;
-            case 'f': c = '\f'; break;
-            case 'n': c = '\n'; break;
-            case 'r': c = '\r'; break;
-            case 't': c = '\t'; break;
-            case 'v': c = '\v'; break;
-            case '\\': c = '\\'; break;
-            case '\'': c = '\''; break;
-            case '"': c = '"'; break;
-            case '?': c = '?'; break;
-            case 'x': c = read_hex(lexer, ++src); ++src; break;
-            default:
-                c = read_oct(lexer, src);
-                if (c != EOS) {
-                    src += 2;
+            if (*src != 'u') {
+                switch (*src) {
+                case 'a': c = '\a'; break;
+                case 'b': c = '\b'; break;
+                case 'f': c = '\f'; break;
+                case 'n': c = '\n'; break;
+                case 'r': c = '\r'; break;
+                case 't': c = '\t'; break;
+                case 'v': c = '\v'; break;
+                case '\\': c = '\\'; break;
+                case '\'': c = '\''; break;
+                case '"': c = '"'; break;
+                case '?': c = '?'; break;
+                case 'x': c = read_hex(lexer, ++src); ++src; break;
+                default:
+                    c = read_oct(lexer, src);
+                    if (c != EOS) {
+                        src += 2;
+                    }
+                    break;
                 }
-                break;
+                ++src;
+                *dst++ = (char)c;
+            } else {
+                /* unicode encoding, ex "\uF054" is equivalent to "\xEF\x81\x94"*/
+                dst = be_load_unicode(dst, src + 1);
+                src += 5;
+                if (dst == NULL) {
+                    be_lexerror(lexer, "incorrect '\\u' encoding");
+                }
             }
-            ++src;
             break;
         default:
+            *dst++ = (char)c;
             break;
         }
-        *dst++ = (char)c;
     }
     lexer->buf.len = dst - lexbuf(lexer);
 }
@@ -354,7 +396,9 @@ static btokentype scan_decimal(blexer *lexer)
     if (has_decimal_dots || is_realexp) {
         type = TokenReal;
     }
-    lexer->buf.s[lexer->buf.len] = '\0';
+    /* use save_char to add the null terminator, */
+    /* since it handles expanding the buffer if needed. */
+    save_char(lexer, '\0');
     if (type == TokenReal) {
         setreal(lexer, be_str2real(lexbuf(lexer), NULL));
     } else {
@@ -431,7 +475,7 @@ static btokentype scan_string(blexer *lexer);   /* forward declaration */
 /* scan f-string and transpile it to `format(...)` syntax then feeding the normal lexer and parser */
 static void scan_f_string(blexer *lexer)
 {
-    char ch;
+    char ch = '\0';
     clear_buf(lexer);
     scan_string(lexer);         /* first scan the entire string in lexer->buf */
 

@@ -232,12 +232,11 @@ void be_load_maplib(bvm *vm)
         { "setitem", m_setitem },
         { "find", m_find },
         { "contains", m_contains },
-        { "has", m_contains },  /* deprecated */
         { "size", m_size },
         { "insert", m_insert },
         { "iter", m_iter },
         { "keys", m_keys },
-        { "tobool", m_tobool }
+        { "tobool", m_tobool },
         { NULL, NULL }
     };
     be_regclass(vm, "map", members);
@@ -253,7 +252,6 @@ class be_class_map (scope: global, name: map) {
     setitem, func(m_setitem)
     find, func(m_find)
     contains, func(m_contains)
-    has, func(m_contains)
     size, func(m_size)
     insert, func(m_insert)
     iter, func(m_iter)

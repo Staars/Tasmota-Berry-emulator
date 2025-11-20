@@ -320,7 +320,11 @@ static void free_proto(bvm *vm, bgcobject *obj)
     bproto *proto = cast_proto(obj);
     gc_try (proto != NULL) {
         be_free(vm, proto->upvals, proto->nupvals * sizeof(bupvaldesc));
-        be_free(vm, proto->ktab, proto->nconst * sizeof(bvalue));
+        if (!(proto->varg & BE_VA_SHARED_KTAB)) {       /* do not free shared ktab */
+                                                        /*caveat: the shared ktab is never GCed, in practice this is not a problem */
+                                                        /* since shared ktab are primarily meant for solidification hence not gc-able */
+            be_free(vm, proto->ktab, proto->nconst * sizeof(bvalue));
+        }
         be_free(vm, proto->ptab, proto->nproto * sizeof(bproto*));
         be_free(vm, proto->code, proto->codesize * sizeof(binstruction));
 #if BE_DEBUG_RUNTIME_INFO
@@ -555,12 +559,6 @@ size_t be_gc_memcount(bvm *vm)
     return vm->gc.usage;
 }
 
-#if BE_USE_PERF_COUNTERS
-#define GC_TIMER(i)  if (vm->microsfnct) { vm->micros_gc##i = vm->microsfnct(); }
-#else
-#define GC_TIMER(i)
-#endif
-
 void be_gc_collect(bvm *vm)
 {
     if (vm->gc.status & GC_HALT) {
@@ -573,7 +571,6 @@ void be_gc_collect(bvm *vm)
     vm->counter_gc_freed = 0;
 #endif
     if (vm->obshook != NULL) (*vm->obshook)(vm, BE_OBS_GC_START, vm->gc.usage);
-    GC_TIMER(0);
     /* step 1: set root-set reference objects to unscanned */
     mark_gray_reset_counters(vm); /* reset all internal counters */
     premark_internal(vm); /* object internal the VM */
@@ -581,22 +578,17 @@ void be_gc_collect(bvm *vm)
     premark_stack(vm); /* stack objects */
     premark_tracestack(vm); /* trace stack objects */
     premark_fixed(vm); /* fixed objects */
-    GC_TIMER(1);
     /* step 2: set unscanned objects to black */
     mark_unscanned(vm);
-    GC_TIMER(2);
     /* step 3: destruct and delete unreachable objects */
     destruct_white(vm);
     delete_white(vm);
     be_gcstrtab(vm);
-    GC_TIMER(3);
     /* step 4: reset the fixed objects */
     reset_fixedlist(vm);
-    GC_TIMER(4);
     /* step 5: calculate the next GC threshold */
     vm->gc.threshold = next_threshold(vm->gc);
     be_gc_memory_pools(vm); /* free unsued memory pools */
-    GC_TIMER(5);
 #if BE_USE_PERF_COUNTERS
     size_t slors_used_after_gc, slots_allocated_after_gc;
     be_gc_memory_pools_info(vm, &slors_used_after_gc, &slots_allocated_after_gc);
