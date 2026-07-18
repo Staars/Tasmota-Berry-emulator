@@ -13,6 +13,7 @@ BINDIR      = $(PREFIX)/bin
 INCPATH     = src default re1.5 emu_src
 SRCPATH     = src default re1.5 emu_src emu_cpp_src
 GENERATE    = generate
+EMSCRIPTEN_INC = $(shell em-config EMSCRIPTEN_ROOT 2>/dev/null)/system/include
 CONFIG      = default/berry_conf.h
 COC         = tools/coc/coc
 CONST_TAB   = $(GENERATE)/be_const_strtab.h
@@ -51,7 +52,7 @@ OBJS     = $(OBJS_C) $(OBJS_CPP)
 DEPS     = $(patsubst %.c, %.d, $(SRCS_C)) $(patsubst %.cpp, %.d, $(SRCS_CPP))
 INCFLAGS = $(foreach dir, $(INCPATH), -I"$(dir)")
 
-.PHONY : clean
+.PHONY : clean clangd
 
 all: $(TARGET)
 
@@ -114,6 +115,23 @@ install:
 
 uninstall:
 	$(RM) $(DESTDIR)$(BINDIR)/$(TARGET)
+
+clangd: $(CONST_TAB)
+	$(Q) echo '[' > compile_commands.json
+	$(Q) first=true; \
+	for src in $(SRCS_C); do \
+		if $$first; then first=false; else echo ',' >> compile_commands.json; fi; \
+		printf '  {"directory":"%s","command":"%s -target wasm32-unknown-emscripten -Wall -Wextra -std=gnu99 -Wno-empty-translation-unit -O3 -Wno-zero-length-array -D__EMSCRIPTEN__ -isystem %s %s -c %s -o %s","file":"%s"}' \
+			"$(CURDIR)" "$(CC)" "$(EMSCRIPTEN_INC)" "$(INCFLAGS)" \
+			"$$src" "$${src%.c}.o" "$$src" >> compile_commands.json; \
+	done; \
+	for src in $(SRCS_CPP); do \
+		if $$first; then first=false; else echo ',' >> compile_commands.json; fi; \
+		printf '  {"directory":"%s","command":"%s -target wasm32-unknown-emscripten -Wall -Wextra -std=c++11 -Wno-empty-translation-unit -O3 -Wno-zero-length-array -D__EMSCRIPTEN__ -isystem %s %s -c %s -o %s","file":"%s"}' \
+			"$(CURDIR)" "$(CXX)" "$(EMSCRIPTEN_INC)" "$(INCFLAGS)" \
+			"$$src" "$${src%.cpp}.o" "$$src" >> compile_commands.json; \
+	done; \
+	echo '' >> compile_commands.json; echo ']' >> compile_commands.json
 
 prebuild: $(GENERATE)
 	$(MSG) [Prebuild] generate resources
