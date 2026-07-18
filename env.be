@@ -6,7 +6,6 @@ import ls
 import la
 import light
 
-
 global.tasmota = tasmota_wasm()
 load("tasmota_env/trigger_class.be")
 load("tasmota_env/tasmota.be")

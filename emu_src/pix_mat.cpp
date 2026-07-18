@@ -222,8 +222,18 @@ int be_pixmat_deinit(bvm* vm) {
 int be_pixmat_clear(bvm* vm) {
     auto* mc = self_core(vm);
     if (!mc) be_raise(vm, "type_error", "clear([val:int])");
-    int val = (be_top(vm) >= 2) ? (be_toint(vm, 2) & 0xFF) : 0;
-    memset(mc->data, val, mc->bytes_size());
+    if (be_top(vm) < 2 || be_isnil(vm, 2)) {
+        memset(mc->data, 0, mc->bytes_size());
+    } else {
+        unsigned int color = (unsigned int)be_toint(vm, 2);
+        uint8_t pix[8];
+        unpack_color(color, mc->bpp, pix);
+        size_t total = mc->bytes_size();
+        // fill buffer pixel by pixel
+        for (size_t i = 0; i < total; i += mc->bpp) {
+            memcpy(mc->data + i, pix, mc->bpp);
+        }
+    }
     be_return_nil(vm);
 }
 

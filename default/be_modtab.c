@@ -140,6 +140,7 @@ BERRY_LOCAL const bntvmodule_t* const be_module_table[] = {
 #if defined(TASMOTA) || defined(__EMSCRIPTEN__)
     /* Berry extensions */
     &be_native_module(cb),
+    &be_native_module(crypto),
 #endif
 #ifdef TASMOTA
     /* user-defined modules register start */
@@ -213,7 +214,7 @@ BERRY_LOCAL const bntvmodule_t* const be_module_table[] = {
 #endif //USE_MI_ESP32
 #ifdef USE_BERRY_CAM
     &be_native_module(cam),
-#endif 
+#endif
 #ifdef USE_DISCOVERY
     &be_native_module(mdns),
 #endif // USE_DISCOVERY
@@ -352,7 +353,7 @@ BERRY_LOCAL bclass_array be_class_table = {
 
 #ifdef USE_LVGL
     &be_native_class(LVGL_glob),
-    
+
     &be_native_class(lv_signal_bars),
     &be_native_class(lv_wifi_bars),
     &be_native_class(lv_wifi_bars_icon),
@@ -394,7 +395,7 @@ extern void be_load_ctypes_energy_definitions_lib(bvm *vm);
 BERRY_API void be_load_custom_libs(bvm *vm)
 {
     (void)vm;   /* prevent a compiler warning */
-    
+
     /* add here custom libs */
 #if !BE_USE_PRECOMPILED_OBJECT
     /* be_load_xxxlib(vm); */

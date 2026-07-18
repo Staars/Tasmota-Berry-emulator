@@ -2,6 +2,10 @@
 .DS_Store
 .fuse_hidden*
 
+# Python
+__pycache__/
+*.pyc
+
 # Prerequisites
 *.d
 
@@ -44,3 +48,9 @@ python_env/*
 # ignore any ouput
 /*.gif
 *.jsonl
+
+# auto-generated headers (by make prebuild / tools/coc)
+generate/
+
+# temporary upstream checkout folder
+lib/

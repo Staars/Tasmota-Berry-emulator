@@ -1,93 +1,33 @@
 # Tasmota-Berry-emulator
 
-This project is part of the [Tasmota](https://github.com/arendst/Tasmota) project. Since end of 2023, Tasmota introduced an [animation framework](https://tasmota.github.io/docs/Berry_Addressable-LED/#animation-framework-module-animate) for Leds based on the embedded [Berry](https://tasmota.github.io/docs/Berry/) programming languages. However iterating when building new animations requires numerous updates on the Tasmota devices and reboots.
+This project is part of the [Tasmota](https://github.com/arendst/Tasmota) project. Since end of 2023, Tasmota introduced an [animation framework](https://tasmota.github.io/docs/Berry_Addressable-LED/#animation-framework-module-animate) for Leds based on the embedded [Berry](https://tasmota.github.io/docs/Berry/) programming language. However iterating when building new animations requires numerous updates on the Tasmota devices and reboots.
 
-This project is a minimal Tasmota/Berry emulator enabling to run and try animations on a laptop, without the need to iterate on an actual embedded device. The goal is to provide an animated image (animated GIF or else) to vizualize the result and iterate.
+This project is a minimal Tasmota/Berry emulator enabling to run and try animations on a laptop, without the need to iterate on an actual embedded device. The goal is to provide an animated image (animated GIF or else) to visualize the result and iterate.
 
 ## Installation
 
-Requirements: Pyhton 3.x, C standard compiler
+Requirements: Python 3.x, C standard compiler, [Emscripten](https://emscripten.org/) (for WASM build)
 
 ### Step 1. Clone the repository
 
 ```bash
-git clone https://github.com/s-hadinger/Tasmota-Berry-emulator.git
+git clone https://github.com/Staars/Tasmota-Berry-emulator.git
 cd Tasmota-Berry-emulator
 ```
 
-### Step 2. Compile Berry
+### Step 2. Compile Berry (native)
 
 ```bash
 make
-cd ..
 ```
 
-You should see something like this:
+### Step 3. Compile Berry (WASM)
 
 ```bash
-> make
-[Prebuild] generate resources
-[Compile] src/be_api.c
-[Compile] src/be_baselib.c
-[Compile] src/be_bytecode.c
-[Compile] src/be_byteslib.c
-[Compile] src/be_class.c
-[Compile] src/be_code.c
-[Compile] src/be_debug.c
-[Compile] src/be_debuglib.c
-[Compile] src/be_exec.c
-[Compile] src/be_filelib.c
-[Compile] src/be_func.c
-[Compile] src/be_gc.c
-[Compile] src/be_gclib.c
-[Compile] src/be_globallib.c
-[Compile] src/be_introspectlib.c
-[Compile] src/be_jsonlib.c
-[Compile] src/be_lexer.c
-[Compile] src/be_libs.c
-[Compile] src/be_list.c
-[Compile] src/be_listlib.c
-[Compile] src/be_map.c
-[Compile] src/be_maplib.c
-[Compile] src/be_mathlib.c
-[Compile] src/be_mem.c
-[Compile] src/be_module.c
-[Compile] src/be_object.c
-[Compile] src/be_oslib.c
-[Compile] src/be_parser.c
-[Compile] src/be_rangelib.c
-[Compile] src/be_repl.c
-[Compile] src/be_solidifylib.c
-[Compile] src/be_strictlib.c
-[Compile] src/be_string.c
-[Compile] src/be_strlib.c
-[Compile] src/be_syslib.c
-[Compile] src/be_timelib.c
-[Compile] src/be_undefinedlib.c
-[Compile] src/be_var.c
-[Compile] src/be_vector.c
-[Compile] src/be_vm.c
-[Compile] default/be_modtab.c
-[Compile] default/be_port.c
-[Compile] default/be_re_lib.c
-[Compile] default/berry.c
-[Compile] re1.5/backtrack.c
-[Compile] re1.5/charclass.c
-[Compile] re1.5/cleanmarks.c
-[Compile] re1.5/compile.c
-[Compile] re1.5/compilecode.c
-[Compile] re1.5/dumpcode.c
-[Compile] re1.5/pike.c
-[Compile] re1.5/recursive.c
-[Compile] re1.5/recursiveloop.c
-[Compile] re1.5/sub.c
-[Compile] re1.5/thompson.c
-[Compile] re1.5/util.c
-[Linking...]
-done
+make web
 ```
 
-### Step 3. Prepare the Python environnement
+### Step 4. Prepare the Python environment
 
 ```bash
 python3 -m venv python_env
@@ -95,29 +35,27 @@ source python_env/bin/activate
 python3 -m pip install "imageio"
 ```
 
-Output:
-
-```bash
-> python3 -m venv python_env
-> source python_env/bin/activate
-> python3 -m pip install "imageio"
-[... lots of linees]
-Successfully installed imageio-2.33.1 numpy-1.26.2 pillow-10.1.0
-```
-
 ## How to use
 
-Copy your animation script in directory `tasmota` and run the following:
+### WASM (browser)
 
 ```bash
-./run_animate.be tasmota/<file>.be
+emrun docs/berry.js
+```
+
+### Native (GIF export)
+
+Copy your animation script in directory `demos/` and run the following:
+
+```bash
+./run_animate.be demos/<file>.be
 python3 generate_gif.py output.jsonl
 ```
 
 Example:
 
 ```bash
-> ./run_animate.be tasmota/animate_demo_cylon.be
+> ./run_animate.be demos/animate_demo_cylon.be
 Animation exported to 'output.jsonl'
 > python3 generate_gif.py output.jsonl -o cylon.gif
 ```
@@ -148,7 +86,7 @@ anim.start()
 ```
 
 ```bash
-> ./run_animate.be -d 30000 tasmota/animate_demo_pulse.be
+> ./run_animate.be -d 30000 demos/animate_demo_pulse.be
 Animation exported to 'output.jsonl'
 > python3 generate_gif.py output.jsonl -o pulse.gif
 ```
@@ -171,7 +109,7 @@ anim.start()
 ```
 
 ```bash
-> ./run_animate.be -d 3000 tasmota/animate_demo_cylon.be
+> ./run_animate.be -d 3000 demos/animate_demo_cylon.be
 Animation exported to 'output.jsonl'
 > python3 generate_gif.py output.jsonl -o cylon.gif
 ```
