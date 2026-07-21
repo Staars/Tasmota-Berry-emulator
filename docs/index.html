@@ -474,6 +474,28 @@
                 initLedConfig();
                 initLvglConfig();
                 updateSeparators();
+
+                var demoAttempts = 0;
+                (function tryPopulateDemos() {
+                    var fs = (typeof FS !== "undefined") ? FS : (typeof Module !== "undefined" && Module.FS);
+                    if (fs) {
+                        try {
+                            fs.readdir("/demos");
+                            populateDemoSelect(fs);
+                            return;
+                        } catch(e) {}
+                    }
+                    if (demoAttempts++ < 400) {
+                        setTimeout(tryPopulateDemos, 50);
+                    }
+                })();
+
+                eb("demo_select").addEventListener("change", function() {
+                    if (this.value) {
+                        readline = 'load("' + this.value + '")';
+                        this.value = "";
+                    }
+                });
             }
             function sf(s) {
                 var t = 0,
@@ -643,6 +665,67 @@
                     drawLED(msg);
                 }
             }
+
+            function populateDemoSelect(fs) {
+                var sel = eb("demo_select");
+                sel.innerHTML = '<option value="">-- Select demo --</option>';
+
+                function collectFiles(path, list) {
+                    try {
+                        fs.readdir(path).forEach(function(name) {
+                            if (name === "." || name === "..") return;
+                            var full = path + "/" + name;
+                            var stat = fs.stat(full);
+                            if (fs.isFile(stat.mode) && name.endsWith(".be")) {
+                                list.push(full);
+                            } else if (fs.isDir(stat.mode)) {
+                                collectFiles(full, list);
+                            }
+                        });
+                    } catch(e) {}
+                }
+
+                try {
+                    var entries = fs.readdir("/demos");
+                    var dirs = [];
+                    var rootFiles = [];
+                    entries.forEach(function(name) {
+                        if (name === "." || name === "..") return;
+                        var full = "/demos/" + name;
+                        var stat = fs.stat(full);
+                        if (fs.isFile(stat.mode) && name.endsWith(".be")) {
+                            rootFiles.push(full);
+                        } else if (fs.isDir(stat.mode)) {
+                            dirs.push({ name: name, path: full });
+                        }
+                    });
+
+                    rootFiles.sort().forEach(function(f) {
+                        var opt = document.createElement("option");
+                        opt.value = f;
+                        opt.textContent = f.replace("/demos/", "");
+                        sel.appendChild(opt);
+                    });
+
+                    dirs.sort(function(a, b) { return a.name.localeCompare(b.name); });
+                    dirs.forEach(function(d) {
+                        var files = [];
+                        collectFiles(d.path, files);
+                        files.sort();
+                        if (files.length === 0) return;
+                        var og = document.createElement("optgroup");
+                        og.label = d.name;
+                        files.forEach(function(f) {
+                            var opt = document.createElement("option");
+                            opt.value = f;
+                            opt.textContent = f.replace("/demos/" + d.name + "/", "");
+                            og.appendChild(opt);
+                        });
+                        sel.appendChild(og);
+                    });
+                } catch(e) { console.log("populateDemoSelect error:", e); }
+            }
+
         </script>
         <style>
             div,
@@ -787,6 +870,9 @@
             <div id="toolbar" style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding: 4px 5px; border-bottom: 1px solid #555; margin-bottom: 4px;">
                 <label style="white-space:nowrap;"><input type="checkbox" id="led_toggle" checked> LED</label>
                 <label style="white-space:nowrap;"><input type="checkbox" id="lvgl_toggle" checked> LVGL</label>
+                <select id="demo_select" style="width:auto; max-width:220px;">
+                    <option value="">-- Select demo --</option>
+                </select>
                 <span id="berry_status" style="white-space:nowrap; color: #47c266;">&#9679; running</span>
             </div>
             <div id="slider_section" style="visibility: collapse;">

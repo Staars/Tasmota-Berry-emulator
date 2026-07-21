@@ -7,6 +7,7 @@ LIBS        = -lm -ldl
 LFLAGS      = -s WASM=1 -s ASYNCIFY \
               -s 'ASYNCIFY_IMPORTS=["_js_readbuffer"]' \
               -sEMULATE_FUNCTION_POINTER_CASTS=1 \
+              -s EXPORTED_RUNTIME_METHODS='["FS"]' \
               -O1 -s SINGLE_FILE=1
 TARGET      = docs/berry.js
 EMBED_FILES = --preload-file tasmota_env --preload-file demos --preload-file env.be@/env.be
