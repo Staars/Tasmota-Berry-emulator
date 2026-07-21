@@ -8,6 +8,36 @@
 // include this header to force compilation fo this module
 #define BE_MAX_CB       20      // max number of callbacks, each callback requires a distinct address
 
+/*********************************************************************************************\
+ * SECURITY CONFIGURATION - BM-001 Patch
+\*********************************************************************************************/
+// Security limits
+#define BE_MAPPING_MAX_NAME_LENGTH 256        // Maximum total name length
+#define BE_MAPPING_MAX_MODULE_NAME_LENGTH 64  // Maximum module name part
+#define BE_MAPPING_MAX_MEMBER_NAME_LENGTH 192 // Maximum member name part
+#define BE_MAPPING_MAX_FUNCTION_ARGS 8        // Maximum function arguments
+
+// Security features (can be disabled for performance if needed)
+#ifndef BE_MAPPING_ENABLE_INPUT_VALIDATION
+#define BE_MAPPING_ENABLE_INPUT_VALIDATION 0
+#endif
+
+// Input validation macros
+#if BE_MAPPING_ENABLE_INPUT_VALIDATION
+    #define BE_VALIDATE_STRING_INPUT(str, max_len, context) \
+        do { \
+            if ((str) == NULL) { \
+                be_raise(vm, "value_error", "NULL string input in " context); \
+            } \
+            size_t __len = strlen(str); \
+            if (__len > (max_len)) { \
+                be_raise(vm, "value_error", "invalid input"); \
+            } \
+        } while(0)
+#else
+    #define BE_VALIDATE_STRING_INPUT(str, max_len, context) do {} while(0)
+#endif
+
 #ifdef __cplusplus
   #define be_const_ctype_func(_f) {                               \
       bvaldata((const void*) &ctype_func_def##_f),                \
@@ -17,6 +47,11 @@
       bvaldata((const void*) &ctype_func_def##_f),                \
       BE_CTYPE_FUNC | BE_STATIC                                   \
   }
+  // compact map node value (BE_USE_COMPACT_MAP): emits "<type byte>, <payload>"
+  #define be_ckv_ctype_func(_f)                                   \
+      BE_CTYPE_FUNC, bvaldata((const void*) &ctype_func_def##_f)
+  #define be_ckv_static_ctype_func(_f)                            \
+      BE_CTYPE_FUNC | BE_STATIC, bvaldata((const void*) &ctype_func_def##_f)
 #else // __cplusplus
 typedef const void* be_constptr;
   #define be_const_ctype_func(_f) {                               \
@@ -27,6 +62,11 @@ typedef const void* be_constptr;
       .v.nf = (const void*) &ctype_func_def##_f,                  \
       .type = BE_CTYPE_FUNC | BE_STATIC                           \
   }
+  // compact map node value (BE_USE_COMPACT_MAP): emits "<type byte>, <payload>"
+  #define be_ckv_ctype_func(_f)                                   \
+      BE_CTYPE_FUNC, { .nf = (const void*) &ctype_func_def##_f }
+  #define be_ckv_static_ctype_func(_f)                            \
+      BE_CTYPE_FUNC | BE_STATIC, { .nf = (const void*) &ctype_func_def##_f }
 #endif // __cplusplus
 
 #define BE_FUNC_CTYPE_DECLARE(_name, _ret_arg, _in_arg) \
@@ -104,7 +144,8 @@ extern void be_const_module_member_raise(bvm *vm, const be_const_member_t * defi
 extern bbool be_const_class_member(bvm *vm, const be_const_member_t * definitions, size_t def_len);
 extern void be_const_class_member_raise(bvm *vm, const be_const_member_t * definitions, size_t def_len);  /* raise an exception if not found */
 extern intptr_t be_convert_single_elt(bvm *vm, int idx, const char * arg_type, int *len);
-extern int be_check_arg_type(bvm *vm, int arg_start, int argc, const char * arg_type, intptr_t p[8]);
+extern int be_check_arg_type(bvm *vm, int arg_start, int argc, const char * arg_type,
+                             intptr_t p[8], uint32_t byval_args[8]);
 extern int be_call_c_func(bvm *vm, const void * func, const char * return_type, const char * arg_type);
 extern int be_call_ctype_func(bvm *vm, const void *definition);     /* handler for Berry vm */
 

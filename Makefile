@@ -1,40 +1,117 @@
-CFLAGS      = -Wall -Wextra -std=c99 -O2 -Wno-zero-length-array -Wno-empty-translation-unit
-CXXFLAGS    = -Wall -Wextra -std=c++11 -O2 -Wno-zero-length-array -Wno-empty-translation-unit
-DEBUG_FLAGS = -O0 -g -DBE_DEBUG
-TEST_FLAGS  = $(DEBUG_FLAGS) --coverage -fno-omit-frame-pointer -fsanitize=address -fsanitize=undefined
-LIBS        = -lm
+# WASM build only — targets: clean, web, clangd
+CC          = emcc
+CXX         = em++
+CFLAGS      = -Wall -Wextra -std=gnu99 -Wno-empty-translation-unit -O3 -Wno-zero-length-array
+CXXFLAGS    = -Wall -Wextra -std=c++11 -Wno-empty-translation-unit -O3 -Wno-zero-length-array
+LIBS        = -lm -ldl
+LFLAGS      = -s WASM=1 -s ASYNCIFY \
+              -s 'ASYNCIFY_IMPORTS=["_js_readbuffer"]' \
+              -sEMULATE_FUNCTION_POINTER_CASTS=1 \
+              -O1 -s SINGLE_FILE=1
 TARGET      = docs/berry.js
-CC          = clang
-CXX         = clang++
+EMBED_FILES = --preload-file tasmota_env --preload-file demos --preload-file env.be@/env.be
 MKDIR       = mkdir
-LFLAGS      =
-PREFIX      = /usr/local
-BINDIR      = $(PREFIX)/bin
-INCPATH     = src default re1.5 emu_src
-SRCPATH     = src default re1.5 emu_src emu_cpp_src
+
+# Source directories
+SRCPATH     = src default re1.5 emu_src
+INCPATH     = src default re1.5 emu_src generate $(LVGL_INCS)
+
+# LVGL core
+LVGL_DIR    = LVGL/lvgl
+LVGL_INCS   = $(LVGL_DIR) $(LVGL_DIR)/src LVGL LVGL/binding/src LVGL/binding/generate LVGL/binding/stubs
+LVGL_SRCS   = $(shell find $(LVGL_DIR)/src -name "*.c" \
+  -not -path "*/drivers/*" \
+  -not -path "*/debugging/*" \
+  -not -path "*/draw/dma2d/*" \
+  -not -path "*/draw/espressif/*" \
+  -not -path "*/draw/eve/*" \
+  -not -path "*/draw/nanovg/*" \
+  -not -path "*/draw/nema_gfx/*" \
+  -not -path "*/draw/nxp/*" \
+  -not -path "*/draw/opengles/*" \
+  -not -path "*/draw/renesas/*" \
+  -not -path "*/draw/sdl/*" \
+  -not -path "*/draw/snapshot/*" \
+  -not -path "*/draw/vg_lite/*" \
+  -not -path "*/draw/convert/helium/*" \
+  -not -path "*/draw/convert/neon/*" \
+  -not -path "*/draw/sw/arm2d/*" \
+  -not -path "*/draw/sw/helium/*" \
+  -not -path "*/draw/sw/neon/*" \
+  -not -path "*/draw/sw/riscv_v/*" \
+  -not -path "*/libs/bmp/*" \
+  -not -path "*/libs/ffmpeg/*" \
+  -not -path "*/libs/freetype/*" \
+  -not -path "*/libs/frogfs/*" \
+  -not -path "*/libs/FT800*" \
+  -not -path "*/libs/gif/*" \
+  -not -path "*/libs/gltf/*" \
+  -not -path "*/libs/gstreamer/*" \
+  -not -path "*/libs/libjpeg*" \
+  -not -path "*/libs/libpng/*" \
+  -not -path "*/libs/libwebp/*" \
+  -not -path "*/libs/lodepng/*" \
+  -not -path "*/libs/lz4/*" \
+  -not -path "*/libs/nanovg/*" \
+  -not -path "*/libs/rlottie/*" \
+  -not -path "*/libs/rle/*" \
+  -not -path "*/libs/svg/*" \
+  -not -path "*/libs/thorvg/*" \
+  -not -path "*/libs/tiny_ttf/*" \
+  -not -path "*/libs/tjpgd/*" \
+  -not -path "*/libs/vg_lite*" \
+  -not -path "*/others/*" \
+  -not -path "*/osal/lv_pthread*" \
+  -not -path "*/osal/lv_freertos*" \
+  -not -path "*/osal/lv_cmsis*" \
+  -not -path "*/osal/lv_rtthread*" \
+  -not -path "*/osal/lv_linux*" \
+  -not -path "*/osal/lv_sdl2*" \
+  -not -path "*/osal/lv_mqx*" \
+  -not -path "*/osal/lv_windows*" \
+  -not -path "*/stdlib/builtin/*" \
+  -not -path "*/stdlib/micropython/*" \
+  -not -path "*/stdlib/rtthread/*" \
+  -not -path "*/stdlib/uefi/*")
+LVGL_OBJS   = $(patsubst $(LVGL_DIR)/src/%.c, build/lvgl/%.o, $(LVGL_SRCS))
+LVGL_CFLAGS = -DLV_CONF_INCLUDE_SIMPLE -Wno-macro-redefined -Wno-unused-function -Wno-unused-parameter \
+              -DBE_LV_WIDGET_OBJ -DBE_LV_WIDGET_ARC -DBE_LV_WIDGET_ARCLABEL -DBE_LV_WIDGET_BAR \
+              -DBE_LV_WIDGET_BTN -DBE_LV_WIDGET_BUTTON -DBE_LV_WIDGET_BTNMATRIX -DBE_LV_WIDGET_BUTTONMATRIX \
+              -DBE_LV_WIDGET_CANVAS -DBE_LV_WIDGET_CHECKBOX -DBE_LV_WIDGET_DROPDOWN \
+              -DBE_LV_WIDGET_IMG -DBE_LV_WIDGET_IMAGE -DBE_LV_WIDGET_LABEL -DBE_LV_WIDGET_LINE \
+              -DBE_LV_WIDGET_ROLLER -DBE_LV_WIDGET_SLIDER -DBE_LV_WIDGET_SWITCH -DBE_LV_WIDGET_TABLE \
+              -DBE_LV_WIDGET_COLORWHEEL -DBE_LV_WIDGET_STRIPES -DBE_LV_WIDGET_ANIMIMG -DBE_LV_WIDGET_CHART \
+              -DBE_LV_WIDGET_IMGBTN -DBE_LV_WIDGET_IMAGEBUTTON -DBE_LV_WIDGET_LED -DBE_LV_WIDGET_LIST \
+              -DBE_LV_WIDGET_METER -DBE_LV_WIDGET_MSGBOX -DBE_LV_WIDGET_QRCODE \
+              -DBE_LV_WIDGET_SCALE -DBE_LV_WIDGET_SCALE_SECTION -DBE_LV_WIDGET_SPINNER \
+              -DBE_LV_WIDGET_SPANGROUP -DBE_LV_WIDGET_SPAN -DBE_LV_WIDGET_TABVIEW
+
+# LVGL Berry binding sources
+LVGL_BIND_DIR1 = LVGL/binding/src
+LVGL_BIND_DIR2 = LVGL/binding/generate
+LVGL_BIND_DIR3 = LVGL/binding/src/solidify
+LVGL_ASSETS_DIR = LVGL/assets
+LVGL_ASSETS_FONTS = $(wildcard $(LVGL_ASSETS_DIR)/src/fonts/*.c) \
+                    $(wildcard $(LVGL_ASSETS_DIR)/src/fonts/montserrat/*.c) \
+                    $(wildcard $(LVGL_ASSETS_DIR)/src/fonts/icons/*.c) \
+                    $(wildcard $(LVGL_ASSETS_DIR)/src/fonts/roboto-latin1/*.c)
+LVGL_BIND_SRCS = $(wildcard $(LVGL_BIND_DIR1)/*.c) $(wildcard $(LVGL_BIND_DIR2)/*.c) $(wildcard $(LVGL_ASSETS_DIR)/*.c) $(LVGL_ASSETS_FONTS)
+LVGL_BIND_OBJS = $(patsubst %.c, %.o, $(LVGL_BIND_SRCS))
+
+# Berry code generation
 GENERATE    = generate
-EMSCRIPTEN_INC = $(shell em-config EMSCRIPTEN_ROOT 2>/dev/null)/system/include
 CONFIG      = default/berry_conf.h
 COC         = tools/coc/coc
 CONST_TAB   = $(GENERATE)/be_const_strtab.h
-EMBED_FILES =
 
-ifeq ($(OS), Windows_NT) # Windows
-CFLAGS    += -Wno-format -DTASMOTA
-CXXFLAGS  += -Wno-format -DTASMOTA
-LFLAGS    += -Wl,--out-implib,berry.lib
-TARGET    := $(TARGET).exe
-PYTHON    ?= python
-COC       := $(PYTHON) $(COC)
-else
-CFLAGS    += -DUSE_READLINE_LIB
-CXXFLAGS  += -DUSE_READLINE_LIB
-LIBS      += -lreadline -ldl
-OS        := $(shell uname)
-ifeq ($(OS), Linux)
-LFLAGS += -Wl,--export-dynamic
-endif
-endif
+# Berry source objects
+SRCS_C      = $(foreach dir, $(SRCPATH), $(wildcard $(dir)/*.c))
+SRCS_CPP    = $(foreach dir, $(SRCPATH), $(wildcard $(dir)/*.cpp))
+OBJS_C      = $(patsubst %.c, %.o, $(SRCS_C))
+OBJS_CPP    = $(patsubst %.cpp, %.o, $(SRCS_CPP))
+OBJS        = $(OBJS_C) $(OBJS_CPP)
+DEPS        = $(patsubst %.c, %.d, $(SRCS_C)) $(patsubst %.cpp, %.d, $(SRCS_CPP))
+INCFLAGS    = $(foreach dir, $(INCPATH), -I"$(dir)")
 
 ifneq ($(V), 1)
 Q=@
@@ -43,79 +120,51 @@ else
 MSG=@true
 endif
 
-# Separate C and C++ source files
-SRCS_C   = $(foreach dir, $(SRCPATH), $(wildcard $(dir)/*.c))
-SRCS_CPP = $(foreach dir, $(SRCPATH), $(wildcard $(dir)/*.cpp))
-OBJS_C   = $(patsubst %.c, %.o, $(SRCS_C))
-OBJS_CPP = $(patsubst %.cpp, %.o, $(SRCS_CPP))
-OBJS     = $(OBJS_C) $(OBJS_CPP)
-DEPS     = $(patsubst %.c, %.d, $(SRCS_C)) $(patsubst %.cpp, %.d, $(SRCS_CPP))
-INCFLAGS = $(foreach dir, $(INCPATH), -I"$(dir)")
+.PHONY: clean
 
-.PHONY : clean clangd
+# ---- Default target: build WASM ----
+web: $(TARGET)
 
-all: $(TARGET)
-
-web: CFLAGS    = -Wall -Wextra -std=gnu99 -Wno-empty-translation-unit -O3 -Wno-zero-length-array
-web: CXXFLAGS  = -Wall -Wextra -std=c++11 -Wno-empty-translation-unit -O3 -Wno-zero-length-array
-web: LIBS      = -lm -ldl
-web: LFLAGS.   =
-web: TARGET    = berry.js
-web: CC        = emcc
-web: CXX       = em++
-web: EMBED_FILES    = --preload-file tasmota_env --preload-file demos  --preload-file env.be@/env.be
-web: LFLAGS    = -s WASM=1 -s ASYNCIFY \
-                 -s 'ASYNCIFY_IMPORTS=["_js_readbuffer"]'\
-                 -O3 -s SINGLE_FILE=1
-web: all
-
-debug: CFLAGS += $(DEBUG_FLAGS)
-debug: CXXFLAGS += $(DEBUG_FLAGS)
-debug: all
-
-test: CFLAGS += $(TEST_FLAGS)
-test: CXXFLAGS += $(TEST_FLAGS)
-test: LFLAGS += $(TEST_FLAGS)
-test: all
-	$(MSG) [Run Testcases...]
-	$(Q) ./testall.be
-	$(Q) $(RM) */*.gcno */*.gcda
-
-$(TARGET): $(OBJS)
+$(TARGET): $(OBJS) $(LVGL_OBJS) $(LVGL_BIND_OBJS) $(CONST_TAB)
 	$(MSG) [Linking...]
-	$(Q) $(CXX) $(OBJS) $(LFLAGS) $(LIBS) -o $@ $(EMBED_FILES)
+	$(Q) $(CXX) $(OBJS) $(LVGL_OBJS) $(LVGL_BIND_OBJS) $(LFLAGS) $(LIBS) -o $@ $(EMBED_FILES)
 	$(MSG) done
 
-# Compile C files
+# ---- Berry source compilation ----
 $(OBJS_C): %.o: %.c
 	$(MSG) [Compile C] $<
 	$(Q) $(CC) -MM $(CFLAGS) $(INCFLAGS) -MT"$*.d" -MT"$(<:.c=.o)" $< > $*.d
 	$(Q) $(CC) $(CFLAGS) $(INCFLAGS) -c $< -o $@
 
-# Compile C++ files
 $(OBJS_CPP): %.o: %.cpp
 	$(MSG) [Compile C++] $<
 	$(Q) $(CXX) -MM $(CXXFLAGS) $(INCFLAGS) -MT"$*.d" -MT"$(<:.cpp=.o)" $< > $*.d
 	$(Q) $(CXX) $(CXXFLAGS) $(INCFLAGS) -c $< -o $@
 
-sinclude $(DEPS)
+# ---- LVGL core compilation ----
+$(LVGL_OBJS): build/lvgl/%.o: $(LVGL_DIR)/src/%.c
+	$(MSG) [Compile LVGL] $<
+	$(Q) mkdir -p $(dir $@)
+	$(Q) $(CC) $(CFLAGS) $(INCFLAGS) $(LVGL_CFLAGS) $(foreach dir, $(LVGL_INCS), -I"$(dir)") -c $< -o $@
 
-$(OBJS): $(CONST_TAB)
+# ---- LVGL Berry binding compilation ----
+$(LVGL_BIND_OBJS): %.o: %.c
+	$(MSG) [Compile LVGL binding] $<
+	$(Q) $(CC) $(CFLAGS) $(INCFLAGS) $(LVGL_CFLAGS) $(foreach dir, $(LVGL_INCS), -I"$(dir)") -c $< -o $@
 
-$(CONST_TAB): $(GENERATE) $(SRCS_C) $(CONFIG)
-	$(MSG) [Prebuild] generate resources
-	$(Q) $(COC) -o $(GENERATE) $(SRCPATH) -c $(CONFIG)
+# ---- Berry string table generation ----
+$(CONST_TAB): $(GENERATE) $(SRCS_C) $(LVGL_BIND_SRCS) $(CONFIG)
+	$(MSG) [Prebuild] generate string table
+	$(Q) $(COC) -o $(GENERATE) $(SRCPATH) $(LVGL_BIND_DIR1) $(LVGL_BIND_DIR2) $(LVGL_BIND_DIR3) -c $(CONFIG)
 
 $(GENERATE):
 	$(Q) $(MKDIR) $(GENERATE)
 
-install:
-	mkdir -p $(DESTDIR)$(BINDIR)
-	cp $(TARGET) $(DESTDIR)$(BINDIR)/$(TARGET)
+$(OBJS) $(LVGL_BIND_OBJS): $(CONST_TAB)
 
-uninstall:
-	$(RM) $(DESTDIR)$(BINDIR)/$(TARGET)
+sinclude $(DEPS)
 
+# ---- clangd compile_commands.json ----
 clangd: $(CONST_TAB)
 	$(Q) echo '[' > compile_commands.json
 	$(Q) first=true; \
@@ -133,12 +182,9 @@ clangd: $(CONST_TAB)
 	done; \
 	echo '' >> compile_commands.json; echo ']' >> compile_commands.json
 
-prebuild: $(GENERATE)
-	$(MSG) [Prebuild] generate resources
-	$(Q) $(COC) -o $(GENERATE) $(SRCPATH) -c $(CONFIG)
-	$(MSG) done
-
+# ---- Clean ----
 clean:
 	$(MSG) [Clean...]
-	$(Q) $(RM) $(OBJS) $(DEPS) $(GENERATE)/* berry.lib
+	$(Q) $(RM) $(OBJS) $(DEPS) $(GENERATE)/* $(LVGL_BIND_OBJS)
+	$(Q) $(RM) -rf build/lvgl $(TARGET)
 	$(MSG) done

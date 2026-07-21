@@ -54,3 +54,7 @@ generate/
 
 # temporary upstream checkout folder
 lib/
+
+# build artifacts
+build/
+.tmp

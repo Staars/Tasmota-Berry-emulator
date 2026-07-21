@@ -25,15 +25,27 @@
                 led_strip = {"w":0,"h":0},
                 led_canvas_ctx,
                 led_config = {
+                    enabled: true,
                     pixel_size: 23,
                     serpentine: true
-                };
+                },
+                lvgl_config = {
+                    enabled: true,
+                    resolution: "320x240",
+                    custom_w: 320,
+                    custom_h: 240,
+                    bpp: "16",
+                    rotation: "0"
+                },
+                lvgl_canvas,
+                lvgl_canvas_ctx;
 
             function loadLedConfig() {
                 try {
                     var saved = localStorage.getItem("led_config");
                     if (saved) {
                         var parsed = JSON.parse(saved);
+                        if (parsed.enabled !== undefined) led_config.enabled = parsed.enabled;
                         if (parsed.pixel_size) led_config.pixel_size = parsed.pixel_size;
                         if (parsed.serpentine !== undefined) led_config.serpentine = parsed.serpentine;
                     }
@@ -44,6 +56,93 @@
                 try {
                     localStorage.setItem("led_config", JSON.stringify(led_config));
                 } catch(e) {}
+            }
+
+            function loadLvglConfig() {
+                try {
+                    var saved = localStorage.getItem("lvgl_config");
+                    if (saved) {
+                        var parsed = JSON.parse(saved);
+                        if (parsed.enabled !== undefined) lvgl_config.enabled = parsed.enabled;
+                        if (parsed.resolution) lvgl_config.resolution = parsed.resolution;
+                        if (parsed.custom_w) lvgl_config.custom_w = parsed.custom_w;
+                        if (parsed.custom_h) lvgl_config.custom_h = parsed.custom_h;
+                        if (parsed.bpp) lvgl_config.bpp = parsed.bpp;
+                        if (parsed.rotation) lvgl_config.rotation = parsed.rotation;
+                    }
+                } catch(e) {}
+            }
+
+            function saveLvglConfig() {
+                try {
+                    localStorage.setItem("lvgl_config", JSON.stringify(lvgl_config));
+                } catch(e) {}
+            }
+
+            function getLvglDisplaySize() {
+                if (lvgl_config.resolution === "custom") {
+                    return { w: lvgl_config.custom_w, h: lvgl_config.custom_h };
+                }
+                var parts = lvgl_config.resolution.split("x");
+                return { w: parseInt(parts[0]), h: parseInt(parts[1]) };
+            }
+
+            function drawLvglPlaceholder() {
+                if (!lvgl_canvas_ctx) return;
+                var size = getLvglDisplaySize();
+                lvgl_canvas.width = size.w;
+                lvgl_canvas.height = size.h;
+                if (lvgl_config.bpp === "1") {
+                    lvgl_canvas_ctx.fillStyle = "#000";
+                    lvgl_canvas_ctx.fillRect(0, 0, size.w, size.h);
+                    lvgl_canvas_ctx.strokeStyle = "#333";
+                    for (var x = 0; x < size.w; x += 16) {
+                        lvgl_canvas_ctx.beginPath();
+                        lvgl_canvas_ctx.moveTo(x, 0);
+                        lvgl_canvas_ctx.lineTo(x, size.h);
+                        lvgl_canvas_ctx.stroke();
+                    }
+                    for (var y = 0; y < size.h; y += 16) {
+                        lvgl_canvas_ctx.beginPath();
+                        lvgl_canvas_ctx.moveTo(0, y);
+                        lvgl_canvas_ctx.lineTo(size.w, y);
+                        lvgl_canvas_ctx.stroke();
+                    }
+                    lvgl_canvas_ctx.fillStyle = "#fff";
+                    lvgl_canvas_ctx.font = "12px monospace";
+                    lvgl_canvas_ctx.textAlign = "center";
+                    lvgl_canvas_ctx.fillText("LVGL display " + size.w + "x" + size.h, size.w / 2, size.h / 2);
+                } else {
+                    lvgl_canvas_ctx.fillStyle = "#111";
+                    lvgl_canvas_ctx.fillRect(0, 0, size.w, size.h);
+                    lvgl_canvas_ctx.strokeStyle = "#333";
+                    for (var x = 0; x < size.w; x += 20) {
+                        lvgl_canvas_ctx.beginPath();
+                        lvgl_canvas_ctx.moveTo(x, 0);
+                        lvgl_canvas_ctx.lineTo(x, size.h);
+                        lvgl_canvas_ctx.stroke();
+                    }
+                    for (var y = 0; y < size.h; y += 20) {
+                        lvgl_canvas_ctx.beginPath();
+                        lvgl_canvas_ctx.moveTo(0, y);
+                        lvgl_canvas_ctx.lineTo(size.w, y);
+                        lvgl_canvas_ctx.stroke();
+                    }
+                    lvgl_canvas_ctx.fillStyle = "#444";
+                    lvgl_canvas_ctx.font = "14px monospace";
+                    lvgl_canvas_ctx.textAlign = "center";
+                    lvgl_canvas_ctx.fillText("LVGL display " + size.w + "x" + size.h, size.w / 2, size.h / 2);
+                }
+            }
+
+            function updateSeparators() {
+                var bothVisible = led_config.enabled && lvgl_config.enabled;
+                var ledCanvas = eb("canvas");
+                var lvSection = eb("lvgl_section");
+                ledCanvas.style.borderTop = bothVisible ? "1px solid #555" : "none";
+                ledCanvas.style.marginTop = bothVisible ? "8px" : "0";
+                lvSection.style.borderTop = bothVisible ? "1px solid #555" : "none";
+                lvSection.style.paddingTop = bothVisible ? "8px" : "0";
             }
 
             function isPerfectSquare(n) {
@@ -208,6 +307,22 @@
             function initLedConfig() {
                 loadLedConfig();
 
+                var ledToggle = eb("led_toggle");
+                var sliderSection = eb("slider_section");
+                var ledCanvas = eb("canvas");
+
+                ledToggle.checked = led_config.enabled;
+                sliderSection.style.display = led_config.enabled ? "" : "none";
+                ledCanvas.style.display = led_config.enabled ? "block" : "none";
+
+                ledToggle.addEventListener("change", function() {
+                    led_config.enabled = this.checked;
+                    sliderSection.style.display = this.checked ? "" : "none";
+                    ledCanvas.style.display = this.checked ? "block" : "none";
+                    updateSeparators();
+                    saveLedConfig();
+                });
+
                 var pxSlider = eb("pixel_size");
                 var pxVal = eb("pixel_size_val");
                 var mwSlider = eb("matrix_w");
@@ -245,6 +360,67 @@
                 });
             }
 
+            function initLvglConfig() {
+                loadLvglConfig();
+
+                var lvToggle = eb("lvgl_toggle");
+                var lvSection = eb("lvgl_section");
+                var resSel = eb("lvgl_resolution");
+                var customWE = eb("lvgl_custom_w");
+                var customHE = eb("lvgl_custom_h");
+                var customWV = eb("lvgl_custom_w_val");
+                var customHV = eb("lvgl_custom_h_val");
+                var bppSel = eb("lvgl_bpp");
+                var rotSel = eb("lvgl_rotation");
+
+                lvToggle.checked = lvgl_config.enabled;
+                lvSection.style.display = lvgl_config.enabled ? "block" : "none";
+                resSel.value = lvgl_config.resolution;
+                customWE.value = lvgl_config.custom_w;
+                customHE.value = lvgl_config.custom_h;
+                customWV.textContent = lvgl_config.custom_w;
+                customHV.textContent = lvgl_config.custom_h;
+                bppSel.value = lvgl_config.bpp;
+                rotSel.value = lvgl_config.rotation;
+
+                var customRow = eb("lvgl_custom_row");
+                customRow.style.display = lvgl_config.resolution === "custom" ? "flex" : "none";
+
+                lvToggle.addEventListener("change", function() {
+                    lvgl_config.enabled = this.checked;
+                    lvSection.style.display = this.checked ? "block" : "none";
+                    updateSeparators();
+                    saveLvglConfig();
+                });
+                resSel.addEventListener("change", function() {
+                    lvgl_config.resolution = this.value;
+                    customRow.style.display = this.value === "custom" ? "flex" : "none";
+                    saveLvglConfig();
+                    drawLvglPlaceholder();
+                });
+                customWE.addEventListener("input", function() {
+                    lvgl_config.custom_w = parseInt(this.value);
+                    customWV.textContent = this.value;
+                    saveLvglConfig();
+                    drawLvglPlaceholder();
+                });
+                customHE.addEventListener("input", function() {
+                    lvgl_config.custom_h = parseInt(this.value);
+                    customHV.textContent = this.value;
+                    saveLvglConfig();
+                    drawLvglPlaceholder();
+                });
+                bppSel.addEventListener("change", function() {
+                    lvgl_config.bpp = this.value;
+                    saveLvglConfig();
+                    drawLvglPlaceholder();
+                });
+                rotSel.addEventListener("change", function() {
+                    lvgl_config.rotation = this.value;
+                    saveLvglConfig();
+                });
+            }
+
             function jd() {
                 var t = 0,
                     i = document.querySelectorAll(
@@ -268,7 +444,36 @@
                 led_canvas = eb("canvas");
                 led_canvas_ctx = led_canvas.getContext("2d");
 
+                lvgl_canvas = eb("lvgl_canvas");
+                lvgl_canvas_ctx = lvgl_canvas.getContext("2d");
+                drawLvglPlaceholder();
+
+                lvgl_canvas.addEventListener("mousemove", function(e) {
+                    var rect = lvgl_canvas.getBoundingClientRect();
+                    var scaleX = lvgl_canvas.width / rect.width;
+                    var scaleY = lvgl_canvas.height / rect.height;
+                    var x = Math.round((e.clientX - rect.left) * scaleX);
+                    var y = Math.round((e.clientY - rect.top) * scaleY);
+                    window.lvgl_touch_x = x;
+                    window.lvgl_touch_y = y;
+                    eb("lvgl_touch_info").textContent = "touch: x=" + x + ", y=" + y;
+                });
+                lvgl_canvas.addEventListener("mousedown", function() {
+                    window.lvgl_touch_pressed = 1;
+                });
+                lvgl_canvas.addEventListener("mouseup", function() {
+                    window.lvgl_touch_pressed = 0;
+                });
+                lvgl_canvas.addEventListener("mouseleave", function() {
+                    window.lvgl_touch_x = 0;
+                    window.lvgl_touch_y = 0;
+                    window.lvgl_touch_pressed = 0;
+                    eb("lvgl_touch_info").textContent = "touch: x=0, y=0";
+                });
+
                 initLedConfig();
+                initLvglConfig();
+                updateSeparators();
             }
             function sf(s) {
                 var t = 0,
@@ -324,6 +529,7 @@
             }
 
             function drawLED(msg){
+                if (!led_config.enabled) return;
                 eb("slider_section").style.visibility = "unset"
                 let leds_left = msg.length/6
 
@@ -578,6 +784,11 @@
                 <h3>Berry in a Browser</h3>
                 <h2>Tasmota emulator</h2>
             </div>
+            <div id="toolbar" style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding: 4px 5px; border-bottom: 1px solid #555; margin-bottom: 4px;">
+                <label style="white-space:nowrap;"><input type="checkbox" id="led_toggle" checked> LED</label>
+                <label style="white-space:nowrap;"><input type="checkbox" id="lvgl_toggle" checked> LVGL</label>
+                <span id="berry_status" style="white-space:nowrap; color: #47c266;">&#9679; running</span>
+            </div>
             <div id="slider_section" style="visibility: collapse;">
                 <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 4px 5px;">
                     <label style="white-space:nowrap;">Pixel:
@@ -597,6 +808,50 @@
                 </div>
             </div>
             <canvas id="canvas" width="800" height="150" style="display: block; margin-left: auto; margin-right: auto;"></canvas>
+            <div id="lvgl_section" style="display: block;">
+                <div id="lvgl_controls" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 4px 5px;">
+                    <label style="white-space:nowrap;">Resolution:
+                        <select id="lvgl_resolution" style="width:auto;">
+                            <option value="128x64">128x64</option>
+                            <option value="128x128">128x128</option>
+                            <option value="135x240">135x240</option>
+                            <option value="240x240">240x240</option>
+                            <option value="240x320">240x320</option>
+                            <option value="320x240" selected>320x240</option>
+                            <option value="320x480">320x480</option>
+                            <option value="480x320">480x320</option>
+                            <option value="480x480">480x480</option>
+                            <option value="custom">Custom</option>
+                        </select>
+                    </label>
+                    <div id="lvgl_custom_row" style="display:none; gap: 8px; align-items: center;">
+                        <label style="white-space:nowrap;">W:
+                            <input type="range" id="lvgl_custom_w" min="80" max="800" value="320" style="width:80px; vertical-align:middle;">
+                            <span id="lvgl_custom_w_val">320</span>
+                        </label>
+                        <label style="white-space:nowrap;">H:
+                            <input type="range" id="lvgl_custom_h" min="80" max="800" value="240" style="width:80px; vertical-align:middle;">
+                            <span id="lvgl_custom_h_val">240</span>
+                        </label>
+                    </div>
+                    <label style="white-space:nowrap;">BPP:
+                        <select id="lvgl_bpp" style="width:auto;">
+                            <option value="1">1-bit (mono)</option>
+                            <option value="16" selected>16-bit (color)</option>
+                        </select>
+                    </label>
+                    <label style="white-space:nowrap;">Rotation:
+                        <select id="lvgl_rotation" style="width:auto;">
+                            <option value="0" selected>0</option>
+                            <option value="90">90</option>
+                            <option value="180">180</option>
+                            <option value="270">270</option>
+                        </select>
+                    </label>
+                </div>
+                <canvas id="lvgl_canvas" width="320" height="240" style="display: block; margin: 0 auto; image-rendering: pixelated; image-rendering: crisp-edges; background: #000;"></canvas>
+                <div id="lvgl_touch_info" style="text-align: center; color: #888; font-size: 0.85em; padding: 2px 0;">touch: x=0, y=0</div>
+            </div>
             <style>
                 .br1 {
                     border-left: dotted 2px #860;

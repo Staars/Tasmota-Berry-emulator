@@ -69,6 +69,11 @@ be_extern_native_module(cam);
 // BLE
 be_extern_native_module(MI32);
 be_extern_native_module(BLE);
+#if defined(__EMSCRIPTEN__)
+be_extern_native_module(lv);
+be_extern_native_module(lv_extra);
+be_extern_native_module(lv_tasmota);
+#endif
 #ifdef USE_LVGL
 be_extern_native_module(lv);
 be_extern_native_module(lv_extra);
@@ -141,6 +146,11 @@ BERRY_LOCAL const bntvmodule_t* const be_module_table[] = {
     /* Berry extensions */
     &be_native_module(cb),
     &be_native_module(crypto),
+#endif
+#if defined(__EMSCRIPTEN__)
+    &be_native_module(lv),
+    &be_native_module(lv_extra),
+    &be_native_module(lv_tasmota),
 #endif
 #ifdef TASMOTA
     /* user-defined modules register start */
@@ -296,12 +306,98 @@ be_extern_native_class(img);
 
 #if defined(__EMSCRIPTEN__)
 be_extern_native_class(tasmota_wasm);
+// LVGL widget classes from be_lvgl_widgets_lib.c
+be_extern_native_class(lv_anim);
+be_extern_native_class(lv_animimg);
+be_extern_native_class(lv_arc);
+be_extern_native_class(lv_arclabel);
+be_extern_native_class(lv_bar);
+be_extern_native_class(lv_button);
+be_extern_native_class(lv_buttonmatrix);
+be_extern_native_class(lv_canvas);
+be_extern_native_class(lv_chart);
+be_extern_native_class(lv_checkbox);
+be_extern_native_class(lv_color);
+be_extern_native_class(lv_colorwheel);
+be_extern_native_class(lv_display);
+be_extern_native_class(lv_dropdown);
+be_extern_native_class(lv_event);
+be_extern_native_class(lv_font);
+be_extern_native_class(lv_group);
+be_extern_native_class(lv_image);
+be_extern_native_class(lv_imagebutton);
+be_extern_native_class(lv_indev);
+be_extern_native_class(lv_label);
+be_extern_native_class(lv_led);
+be_extern_native_class(lv_line);
+be_extern_native_class(lv_list);
+be_extern_native_class(lv_msgbox);
+be_extern_native_class(lv_obj);
+be_extern_native_class(lv_qrcode);
+be_extern_native_class(lv_roller);
+be_extern_native_class(lv_scale);
+be_extern_native_class(lv_scale_section);
+be_extern_native_class(lv_slider);
+be_extern_native_class(lv_span);
+be_extern_native_class(lv_spangroup);
+be_extern_native_class(lv_spinner);
+be_extern_native_class(lv_style);
+be_extern_native_class(lv_switch);
+be_extern_native_class(lv_table);
+be_extern_native_class(lv_tabview);
+be_extern_native_class(lv_theme);
+be_extern_native_class(lv_timer);
+be_extern_native_class(lv_stripes);
 #endif
 
 BERRY_LOCAL bclass_array be_class_table = {
 #if defined(__EMSCRIPTEN__)
     &be_native_class(tasmota_wasm),
     &be_native_class(pixmat),
+    &be_native_class(ctypes_bytes),
+    &be_native_class(ctypes_bytes_dyn),
+    // LVGL widget classes from be_lvgl_widgets_lib.c
+    &be_native_class(lv_anim),
+    &be_native_class(lv_animimg),
+    &be_native_class(lv_arc),
+    &be_native_class(lv_arclabel),
+    &be_native_class(lv_bar),
+    &be_native_class(lv_button),
+    &be_native_class(lv_buttonmatrix),
+    &be_native_class(lv_canvas),
+    &be_native_class(lv_chart),
+    &be_native_class(lv_checkbox),
+    &be_native_class(lv_color),
+    &be_native_class(lv_colorwheel),
+    &be_native_class(lv_display),
+    &be_native_class(lv_dropdown),
+    &be_native_class(lv_event),
+    &be_native_class(lv_font),
+    &be_native_class(lv_group),
+    &be_native_class(lv_image),
+    &be_native_class(lv_imagebutton),
+    &be_native_class(lv_indev),
+    &be_native_class(lv_label),
+    &be_native_class(lv_led),
+    &be_native_class(lv_line),
+    &be_native_class(lv_list),
+    &be_native_class(lv_msgbox),
+    &be_native_class(lv_obj),
+    &be_native_class(lv_qrcode),
+    &be_native_class(lv_roller),
+    &be_native_class(lv_scale),
+    &be_native_class(lv_scale_section),
+    &be_native_class(lv_slider),
+    &be_native_class(lv_span),
+    &be_native_class(lv_spangroup),
+    &be_native_class(lv_spinner),
+    &be_native_class(lv_style),
+    &be_native_class(lv_switch),
+    &be_native_class(lv_table),
+    &be_native_class(lv_tabview),
+    &be_native_class(lv_theme),
+    &be_native_class(lv_timer),
+    &be_native_class(lv_stripes),
 #endif
 #if defined(TASMOTA)
     /* first list are direct classes */

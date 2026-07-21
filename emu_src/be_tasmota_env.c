@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include <emscripten/html5.h>
 #include <string.h>
+#include "lvgl.h"
 
 #define nullptr NULL
 
@@ -103,6 +104,7 @@ void callBerryFastLoop() {
 
 void tasmota_run_loop([[maybe_unused]] void *userData){
   static uint32_t now = 0;
+  lv_timer_handler();
   callBerryFastLoop();
   if(now%50 == 0){
     callBerryEventDispatcher(("every_50ms"), nullptr, 0, nullptr,0);
@@ -122,6 +124,7 @@ void tasmota_run_loop([[maybe_unused]] void *userData){
 
 void tasmota_emulator_init(bvm *vm){
   berry.vm = vm;
+  lv_init();
   berry.interValID = emscripten_set_interval(tasmota_run_loop,5,(void*)0); // fastloop of 5ms is our tick
   emscripten_console_log("Did init Tasmota emulator");
 }

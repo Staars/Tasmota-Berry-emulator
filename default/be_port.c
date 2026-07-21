@@ -56,8 +56,10 @@ BERRY_API char* be_readstring(char *buffer, size_t size)
 {
     static size_t len = 0;
     static char *buf = NULL;
+    static char *buf_start = NULL;
     if (!buf) {
         buf = _js_readbuffer();
+        buf_start = buf;
         len = strlen(buf);
     }
     if (len >= size) {
@@ -67,8 +69,9 @@ BERRY_API char* be_readstring(char *buffer, size_t size)
         buf += size;
     } else {
         strcpy(buffer, buf);
-        free(buf);
+        free(buf_start);
         buf = NULL;
+        buf_start = NULL;
     }
     return buffer;
 }
