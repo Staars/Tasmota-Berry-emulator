@@ -176,7 +176,7 @@ class EbikeDemo
       i += 1
     end
     for button : self.buttons
-      button.add_event_cb(self.nav_click, lv.EVENT_CLICKED, 0)
+      button.add_event_cb(/obj, event -> self.nav_click(obj, event), lv.EVENT_CLICKED, 0)
     end
     self.show_page(0)
   end

@@ -11,6 +11,15 @@
             href="data:image/x-icon;base64,AAABAAEAEBACAAEAAQCwAAAAFgAAACgAAAAQAAAAIAAAAAEAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA////AP5/b+H6X2/h8k9v4eZnb+Hud2/h7ndv4e53b+FmZm/hMkxv4ZgZb+HOc2/h5+dv4fPPb+H5n2/h/D9v4f5/b+EAAO4EAADuBAAA7gQAAO4EAADuBAAA7gQAAO4EAADuBAAA7gQAAO4EAADuBAAA7gQAAO4EAADuBAAA7gQAAO4E"
         />
         <title>Tasmota Berry Console</title>
+        <script>
+            var berryRuntimeReady = false;
+            var Module = {
+                onRuntimeInitialized: function() {
+                    berryRuntimeReady = true;
+                    window.dispatchEvent(new Event("berry-runtime-ready"));
+                }
+            };
+        </script>
         <script async src="berry.js"></script>
         <script>
             var x = null,
@@ -205,8 +214,8 @@
             var submitQueue = [];
 
             function submitBerryCode(source) {
-                if (typeof Module === "undefined" || typeof Module.ccall !== "function") {
-                    console.log("WASM not ready");
+                if (!berryRuntimeReady || typeof Module === "undefined" || typeof Module.ccall !== "function") {
+                    submitQueue.push(source);
                     return;
                 }
                 if (submitting) {
@@ -417,6 +426,8 @@
                     lvgl_config.rotation = this.value;
                     saveLvglConfig();
                 });
+
+                drawLvglPlaceholder();
             }
 
             function jd() {
@@ -474,19 +485,34 @@
                 updateSeparators();
 
                 var demoAttempts = 0;
-                (function tryPopulateDemos() {
+                function tryPopulateDemos() {
+                    if (!berryRuntimeReady) {
+                        if (demoAttempts++ < 400) {
+                            setTimeout(tryPopulateDemos, 50);
+                        }
+                        return;
+                    }
                     var fs = (typeof FS !== "undefined") ? FS : (typeof Module !== "undefined" && Module.FS);
                     if (fs) {
                         try {
-                            fs.readdir("/demos");
-                            populateDemoSelect(fs);
-                            return;
+                            if (populateDemoSelect(fs)) return;
                         } catch(e) {}
                     }
                     if (demoAttempts++ < 400) {
                         setTimeout(tryPopulateDemos, 50);
                     }
-                })();
+                }
+                window.addEventListener("berry-runtime-ready", tryPopulateDemos);
+                tryPopulateDemos();
+
+                window.addEventListener("berry-runtime-ready", function() {
+                    if (!submitting && submitQueue.length > 0) {
+                        submitBerryCode(submitQueue.shift());
+                    }
+                });
+                if (berryRuntimeReady && submitQueue.length > 0) {
+                    submitBerryCode(submitQueue.shift());
+                }
 
                 eb("led_demo_select").addEventListener("change", function() {
                     if (this.value) {
@@ -679,6 +705,7 @@
                 function fillSelect(selId, basePath, prefix) {
                     var sel = eb(selId);
                     sel.innerHTML = '<option value="">-- none --</option>';
+                    var count = 0;
                     try {
                         var entries = fs.readdir(basePath);
                         var dirs = [];
@@ -699,6 +726,7 @@
                             opt.value = f;
                             opt.textContent = f.replace(prefix, "");
                             sel.appendChild(opt);
+                            count += 1;
                         });
 
                         dirs.sort(function(a, b) { return a.name.localeCompare(b.name); });
@@ -714,14 +742,17 @@
                                 opt.value = f;
                                 opt.textContent = f.replace(prefix + d.name + "/", "");
                                 og.appendChild(opt);
+                                count += 1;
                             });
                             sel.appendChild(og);
                         });
                     } catch(e) { console.log("fillSelect error:", e); }
+                    return count;
                 }
 
-                fillSelect("led_demo_select", "/demos/LED", "/demos/LED/");
-                fillSelect("lvgl_demo_select", "/demos/LVGL", "/demos/LVGL/");
+                var ledCount = fillSelect("led_demo_select", "/demos/LED", "/demos/LED/");
+                var lvglCount = fillSelect("lvgl_demo_select", "/demos/LVGL", "/demos/LVGL/");
+                return ledCount > 0 && lvglCount > 0;
             }
 
         </script>
@@ -906,18 +937,24 @@
                             <option value="240x320">240x320</option>
                             <option value="320x240" selected>320x240</option>
                             <option value="320x480">320x480</option>
+                            <option value="384x384">384x384</option>
+                            <option value="400x400">400x400</option>
+                            <option value="470x640">470x640</option>
                             <option value="480x320">480x320</option>
                             <option value="480x480">480x480</option>
+                            <option value="800x480">800x480</option>
+                            <option value="1280x720">1280x720</option>
+                            <option value="1920x1080">1920x1080</option>
                             <option value="custom">Custom</option>
                         </select>
                     </label>
                     <div id="lvgl_custom_row" style="display:none; gap: 8px; align-items: center;">
                         <label style="white-space:nowrap;">W:
-                            <input type="range" id="lvgl_custom_w" min="80" max="800" value="320" style="width:80px; vertical-align:middle;">
+                            <input type="range" id="lvgl_custom_w" min="80" max="1920" value="320" style="width:80px; vertical-align:middle;">
                             <span id="lvgl_custom_w_val">320</span>
                         </label>
                         <label style="white-space:nowrap;">H:
-                            <input type="range" id="lvgl_custom_h" min="80" max="800" value="240" style="width:80px; vertical-align:middle;">
+                            <input type="range" id="lvgl_custom_h" min="80" max="1920" value="240" style="width:80px; vertical-align:middle;">
                             <span id="lvgl_custom_h_val">240</span>
                         </label>
                     </div>
@@ -936,7 +973,7 @@
                         </select>
                     </label>
                 </div>
-                <canvas id="lvgl_canvas" width="320" height="240" style="display: block; margin: 0 auto; image-rendering: pixelated; image-rendering: crisp-edges; background: #000;"></canvas>
+                <canvas id="lvgl_canvas" width="320" height="240" style="display: block; max-width: 100%; height: auto; margin: 0 auto; image-rendering: pixelated; image-rendering: crisp-edges; background: #000;"></canvas>
                 <div id="lvgl_touch_info" style="text-align: center; color: #888; font-size: 0.85em; padding: 2px 0;">touch: x=0, y=0</div>
             </div>
             <style>

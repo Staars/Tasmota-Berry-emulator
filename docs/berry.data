@@ -4404,7 +4404,7 @@ class EbikeDemo
       i += 1
     end
     for button : self.buttons
-      button.add_event_cb(self.nav_click, lv.EVENT_CLICKED, 0)
+      button.add_event_cb(/obj, event -> self.nav_click(obj, event), lv.EVENT_CLICKED, 0)
     end
     self.show_page(0)
   end
@@ -4499,11 +4499,11 @@ class FlexLayoutDemo
     label = lv.label(remove_btn)
     label.set_text("Remove")
     label.center()
-    flow_dd.add_event_cb(self.flow_cb, lv.EVENT_VALUE_CHANGED, 0)
-    align_dd.add_event_cb(self.align_cb, lv.EVENT_VALUE_CHANGED, 0)
-    scroll.add_event_cb(self.scroll_cb, lv.EVENT_VALUE_CHANGED, 0)
-    self.add_btn.add_event_cb(self.button_cb, lv.EVENT_CLICKED, 0)
-    remove_btn.add_event_cb(self.button_cb, lv.EVENT_CLICKED, 0)
+    flow_dd.add_event_cb(/obj, event -> self.flow_cb(obj, event), lv.EVENT_VALUE_CHANGED, 0)
+    align_dd.add_event_cb(/obj, event -> self.align_cb(obj, event), lv.EVENT_VALUE_CHANGED, 0)
+    scroll.add_event_cb(/obj, event -> self.scroll_cb(obj, event), lv.EVENT_VALUE_CHANGED, 0)
+    self.add_btn.add_event_cb(/obj, event -> self.button_cb(obj, event), lv.EVENT_CLICKED, 0)
+    remove_btn.add_event_cb(/obj, event -> self.button_cb(obj, event), lv.EVENT_CLICKED, 0)
     var i = 0
     while i < 8
       self.add_node()
@@ -4678,11 +4678,11 @@ class HighResDemo
     charge.set_size(48, 26)
     self.text(p4, "Navigation, slider, scene and charging are interactive", 0, row - 34, self.f14, 0x7188A8)
     for button : self.nav
-      button.add_event_cb(self.nav_cb, lv.EVENT_CLICKED, 0)
+      button.add_event_cb(/obj, event -> self.nav_cb(obj, event), lv.EVENT_CLICKED, 0)
     end
-    self.climate.add_event_cb(self.climate_cb, lv.EVENT_VALUE_CHANGED, 0)
-    scene.add_event_cb(self.scene_cb, lv.EVENT_CLICKED, 0)
-    charge.add_event_cb(self.charge_cb, lv.EVENT_VALUE_CHANGED, 0)
+    self.climate.add_event_cb(/obj, event -> self.climate_cb(obj, event), lv.EVENT_VALUE_CHANGED, 0)
+    scene.add_event_cb(/obj, event -> self.scene_cb(obj, event), lv.EVENT_CLICKED, 0)
+    charge.add_event_cb(/obj, event -> self.charge_cb(obj, event), lv.EVENT_VALUE_CHANGED, 0)
   end
 end
 
@@ -4803,11 +4803,11 @@ class MultilangDemo
       self.like_labels.push(label)
       i += 1
     end
-    self.en.add_event_cb(self.language, lv.EVENT_CLICKED, 0)
-    self.es.add_event_cb(self.language, lv.EVENT_CLICKED, 0)
-    fr.add_event_cb(self.language, lv.EVENT_CLICKED, 0)
+    self.en.add_event_cb(/obj, event -> self.language(obj, event), lv.EVENT_CLICKED, 0)
+    self.es.add_event_cb(/obj, event -> self.language(obj, event), lv.EVENT_CLICKED, 0)
+    fr.add_event_cb(/obj, event -> self.language(obj, event), lv.EVENT_CLICKED, 0)
     for button : self.like_buttons
-      button.add_event_cb(self.like, lv.EVENT_CLICKED, 0)
+      button.add_event_cb(/obj, event -> self.like(obj, event), lv.EVENT_CLICKED, 0)
     end
   end
 end
@@ -4869,7 +4869,7 @@ class ScrollDemo
     while i < 4
       self.switches[i].add_state(lv.STATE_CHECKED)
       self.file_list.add_flag(flags[i])
-      self.switches[i].add_event_cb(self.switch_cb, lv.EVENT_VALUE_CHANGED, 0)
+      self.switches[i].add_event_cb(/obj, event -> self.switch_cb(obj, event), lv.EVENT_VALUE_CHANGED, 0)
       i += 1
     end
     self.file_list.move_foreground()
@@ -5101,7 +5101,7 @@ class SmartwatchDemo
     button.set_size(140, 38)
     label = self.label(button, "START / STOP", 0, 0, self.f14, self.white)
     label.center()
-    button.add_event_cb(self.heart_click, lv.EVENT_CLICKED, 0)
+    button.add_event_cb(/obj, event -> self.heart_click(obj, event), lv.EVENT_CLICKED, 0)
     self.next_button(page, "SPORTS")
   end
 
@@ -5134,7 +5134,7 @@ class SmartwatchDemo
     play.set_style_radius(27, 0)
     self.play_label = self.label(play, ">", 0, 0, self.f20, self.white)
     self.play_label.center()
-    play.add_event_cb(self.play_click, lv.EVENT_CLICKED, 0)
+    play.add_event_cb(/obj, event -> self.play_click(obj, event), lv.EVENT_CLICKED, 0)
     self.next_button(page, "WATCH FACE")
   end
 
@@ -5185,7 +5185,7 @@ class SmartwatchDemo
     self.build_sports(self.pages[4])
     self.build_music(self.pages[5])
     for button : self.next_buttons
-      button.add_event_cb(self.next_page, lv.EVENT_CLICKED, 0)
+      button.add_event_cb(/obj, event -> self.next_page(obj, event), lv.EVENT_CLICKED, 0)
     end
     self.show(0)
   end
@@ -5270,7 +5270,7 @@ class TransformDemo
     arc.set_value(225)
     arc.center()
     arc.add_flag(lv.OBJ_FLAG_ADV_HITTEST)
-    arc.add_event_cb(self.arc_cb, lv.EVENT_VALUE_CHANGED, 0)
+    arc.add_event_cb(/obj, event -> self.arc_cb(obj, event), lv.EVENT_VALUE_CHANGED, 0)
     ghost.move_foreground()
     self.transform_card.move_foreground()
     var slider = lv.slider(self.scr)
@@ -5278,7 +5278,7 @@ class TransformDemo
     slider.align(lv.ALIGN_BOTTOM_MID, 0, -12)
     slider.set_range(128, 300)
     slider.set_value(256, lv.ANIM_OFF)
-    slider.add_event_cb(self.slider_cb, lv.EVENT_VALUE_CHANGED, 0)
+    slider.add_event_cb(/obj, event -> self.slider_cb(obj, event), lv.EVENT_VALUE_CHANGED, 0)
   end
 end
 

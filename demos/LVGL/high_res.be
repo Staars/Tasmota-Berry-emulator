@@ -163,11 +163,11 @@ class HighResDemo
     charge.set_size(48, 26)
     self.text(p4, "Navigation, slider, scene and charging are interactive", 0, row - 34, self.f14, 0x7188A8)
     for button : self.nav
-      button.add_event_cb(self.nav_cb, lv.EVENT_CLICKED, 0)
+      button.add_event_cb(/obj, event -> self.nav_cb(obj, event), lv.EVENT_CLICKED, 0)
     end
-    self.climate.add_event_cb(self.climate_cb, lv.EVENT_VALUE_CHANGED, 0)
-    scene.add_event_cb(self.scene_cb, lv.EVENT_CLICKED, 0)
-    charge.add_event_cb(self.charge_cb, lv.EVENT_VALUE_CHANGED, 0)
+    self.climate.add_event_cb(/obj, event -> self.climate_cb(obj, event), lv.EVENT_VALUE_CHANGED, 0)
+    scene.add_event_cb(/obj, event -> self.scene_cb(obj, event), lv.EVENT_CLICKED, 0)
+    charge.add_event_cb(/obj, event -> self.charge_cb(obj, event), lv.EVENT_VALUE_CHANGED, 0)
   end
 end
 

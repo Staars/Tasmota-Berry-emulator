@@ -54,7 +54,7 @@ class ScrollDemo
     while i < 4
       self.switches[i].add_state(lv.STATE_CHECKED)
       self.file_list.add_flag(flags[i])
-      self.switches[i].add_event_cb(self.switch_cb, lv.EVENT_VALUE_CHANGED, 0)
+      self.switches[i].add_event_cb(/obj, event -> self.switch_cb(obj, event), lv.EVENT_VALUE_CHANGED, 0)
       i += 1
     end
     self.file_list.move_foreground()

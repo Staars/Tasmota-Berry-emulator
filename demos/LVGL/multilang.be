@@ -114,11 +114,11 @@ class MultilangDemo
       self.like_labels.push(label)
       i += 1
     end
-    self.en.add_event_cb(self.language, lv.EVENT_CLICKED, 0)
-    self.es.add_event_cb(self.language, lv.EVENT_CLICKED, 0)
-    fr.add_event_cb(self.language, lv.EVENT_CLICKED, 0)
+    self.en.add_event_cb(/obj, event -> self.language(obj, event), lv.EVENT_CLICKED, 0)
+    self.es.add_event_cb(/obj, event -> self.language(obj, event), lv.EVENT_CLICKED, 0)
+    fr.add_event_cb(/obj, event -> self.language(obj, event), lv.EVENT_CLICKED, 0)
     for button : self.like_buttons
-      button.add_event_cb(self.like, lv.EVENT_CLICKED, 0)
+      button.add_event_cb(/obj, event -> self.like(obj, event), lv.EVENT_CLICKED, 0)
     end
   end
 end

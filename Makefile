@@ -11,6 +11,7 @@ LFLAGS      = -s WASM=1 -s ASYNCIFY \
               -O1 -s SINGLE_FILE=1
 TARGET      = docs/berry.js
 EMBED_FILES = --preload-file tasmota_env --preload-file demos --preload-file env.be@/env.be
+EMBED_SOURCES = $(shell find tasmota_env demos -type f) env.be
 MKDIR       = mkdir
 
 # Source directories
@@ -126,7 +127,7 @@ endif
 # ---- Default target: build WASM ----
 web: $(TARGET)
 
-$(TARGET): $(OBJS) $(LVGL_OBJS) $(LVGL_BIND_OBJS) $(CONST_TAB)
+$(TARGET): $(OBJS) $(LVGL_OBJS) $(LVGL_BIND_OBJS) $(CONST_TAB) $(EMBED_SOURCES)
 	$(MSG) [Linking...]
 	$(Q) $(CXX) $(OBJS) $(LVGL_OBJS) $(LVGL_BIND_OBJS) $(LFLAGS) $(LIBS) -o $@ $(EMBED_FILES)
 	$(MSG) done

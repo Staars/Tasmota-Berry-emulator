@@ -149,7 +149,7 @@ class SmartwatchDemo
     button.set_size(140, 38)
     label = self.label(button, "START / STOP", 0, 0, self.f14, self.white)
     label.center()
-    button.add_event_cb(self.heart_click, lv.EVENT_CLICKED, 0)
+    button.add_event_cb(/obj, event -> self.heart_click(obj, event), lv.EVENT_CLICKED, 0)
     self.next_button(page, "SPORTS")
   end
 
@@ -182,7 +182,7 @@ class SmartwatchDemo
     play.set_style_radius(27, 0)
     self.play_label = self.label(play, ">", 0, 0, self.f20, self.white)
     self.play_label.center()
-    play.add_event_cb(self.play_click, lv.EVENT_CLICKED, 0)
+    play.add_event_cb(/obj, event -> self.play_click(obj, event), lv.EVENT_CLICKED, 0)
     self.next_button(page, "WATCH FACE")
   end
 
@@ -233,7 +233,7 @@ class SmartwatchDemo
     self.build_sports(self.pages[4])
     self.build_music(self.pages[5])
     for button : self.next_buttons
-      button.add_event_cb(self.next_page, lv.EVENT_CLICKED, 0)
+      button.add_event_cb(/obj, event -> self.next_page(obj, event), lv.EVENT_CLICKED, 0)
     end
     self.show(0)
   end

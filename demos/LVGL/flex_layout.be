@@ -86,11 +86,11 @@ class FlexLayoutDemo
     label = lv.label(remove_btn)
     label.set_text("Remove")
     label.center()
-    flow_dd.add_event_cb(self.flow_cb, lv.EVENT_VALUE_CHANGED, 0)
-    align_dd.add_event_cb(self.align_cb, lv.EVENT_VALUE_CHANGED, 0)
-    scroll.add_event_cb(self.scroll_cb, lv.EVENT_VALUE_CHANGED, 0)
-    self.add_btn.add_event_cb(self.button_cb, lv.EVENT_CLICKED, 0)
-    remove_btn.add_event_cb(self.button_cb, lv.EVENT_CLICKED, 0)
+    flow_dd.add_event_cb(/obj, event -> self.flow_cb(obj, event), lv.EVENT_VALUE_CHANGED, 0)
+    align_dd.add_event_cb(/obj, event -> self.align_cb(obj, event), lv.EVENT_VALUE_CHANGED, 0)
+    scroll.add_event_cb(/obj, event -> self.scroll_cb(obj, event), lv.EVENT_VALUE_CHANGED, 0)
+    self.add_btn.add_event_cb(/obj, event -> self.button_cb(obj, event), lv.EVENT_CLICKED, 0)
+    remove_btn.add_event_cb(/obj, event -> self.button_cb(obj, event), lv.EVENT_CLICKED, 0)
     var i = 0
     while i < 8
       self.add_node()

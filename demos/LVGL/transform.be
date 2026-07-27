@@ -76,7 +76,7 @@ class TransformDemo
     arc.set_value(225)
     arc.center()
     arc.add_flag(lv.OBJ_FLAG_ADV_HITTEST)
-    arc.add_event_cb(self.arc_cb, lv.EVENT_VALUE_CHANGED, 0)
+    arc.add_event_cb(/obj, event -> self.arc_cb(obj, event), lv.EVENT_VALUE_CHANGED, 0)
     ghost.move_foreground()
     self.transform_card.move_foreground()
     var slider = lv.slider(self.scr)
@@ -84,7 +84,7 @@ class TransformDemo
     slider.align(lv.ALIGN_BOTTOM_MID, 0, -12)
     slider.set_range(128, 300)
     slider.set_value(256, lv.ANIM_OFF)
-    slider.add_event_cb(self.slider_cb, lv.EVENT_VALUE_CHANGED, 0)
+    slider.add_event_cb(/obj, event -> self.slider_cb(obj, event), lv.EVENT_VALUE_CHANGED, 0)
   end
 end
 
