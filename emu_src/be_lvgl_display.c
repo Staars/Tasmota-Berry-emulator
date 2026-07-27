@@ -23,6 +23,8 @@ static int32_t touch_x = 0;
 static int32_t touch_y = 0;
 static bbool touch_pressed = bfalse;
 
+extern const bclass be_class_LVGL_glob;
+
 extern const lv_font_t seg7_8;
 extern const lv_font_t seg7_10;
 extern const lv_font_t seg7_12;
@@ -113,8 +115,8 @@ static void flush_cb(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map)
     /* Log first few flushes */
     if (flush_count < 5) {
         uint16_t first_px = ((uint16_t *)px_map)[0];
-        emscripten_log(EM_LOG_CONSOLE, "flush_cb #%d: area=(%d,%d)-(%d,%d) size=%dx%d first_px=0x%04x",
-            flush_count, area->x1, area->y1, area->x2, area->y2, w, h, first_px);
+        //emscripten_log(EM_LOG_CONSOLE, "flush_cb #%d: area=(%d,%d)-(%d,%d) size=%dx%d first_px=0x%04x",
+        //    flush_count, area->x1, area->y1, area->x2, area->y2, w, h, first_px);
         flush_count++;
     }
 
@@ -123,7 +125,7 @@ static void flush_cb(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map)
     if (needed > convbuf_size) {
         uint8_t *new_convbuf = realloc(convbuf, needed);
         if (new_convbuf == NULL) {
-            emscripten_log(EM_LOG_CONSOLE, "flush_cb: realloc FAILED for %u bytes", needed);
+            //emscripten_log(EM_LOG_CONSOLE, "flush_cb: realloc FAILED for %u bytes", needed);
             lv_display_flush_ready(disp);
             return;
         }
@@ -144,8 +146,8 @@ static void flush_cb(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map)
 
     /* Log first few converted pixels */
     if (flush_count <= 5) {
-        emscripten_log(EM_LOG_CONSOLE, "flush_cb: converted first pixel R=%d G=%d B=%d A=%d",
-            convbuf[0], convbuf[1], convbuf[2], convbuf[3]);
+        // emscripten_log(EM_LOG_CONSOLE, "flush_cb: converted first pixel R=%d G=%d B=%d A=%d",
+        //     convbuf[0], convbuf[1], convbuf[2], convbuf[3]);
     }
 
     /* Push to canvas */
@@ -163,6 +165,27 @@ static void indev_read_cb(lv_indev_t *indev, lv_indev_data_t *data) {
 
 /* ---------- Berry: lv.start() ---------- */
 int lv0_start(bvm *vm) {
+    be_getglobal(vm, "_lvgl");
+    bbool lvgl_glob_initialized = be_isinstance(vm, -1);
+    be_pop(vm, 1);
+
+    if (!lvgl_glob_initialized) {
+        be_getglobal(vm, "cb");
+        if (be_isnil(vm, -1)) {
+            be_pop(vm, 1);
+            if (!be_getmodule(vm, "cb")) {
+                be_raise(vm, "import_error", "module 'cb' not found");
+            }
+            be_setglobal(vm, "cb");
+        }
+        be_pop(vm, 1);
+
+        be_pushntvclass(vm, &be_class_LVGL_glob);
+        be_call(vm, 0);
+        be_setglobal(vm, "_lvgl");
+        be_pop(vm, 1);
+    }
+
     if (display_started) {
         be_return(vm);
     }

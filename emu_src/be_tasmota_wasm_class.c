@@ -16,6 +16,23 @@ const char kInternalError[] = "internal_error";
 
 // tasmota wasm class
 
+extern void tasmota_loop_pause(void);
+extern void tasmota_loop_resume(void);
+
+static int32_t l_delay(struct bvm *vm) {
+  int32_t top = be_top(vm);
+  if (top == 2 && be_isint(vm, 2)) {
+    int ms = be_toint(vm, 2);
+    if (ms > 0) {
+      tasmota_loop_pause();
+      emscripten_sleep(ms);
+      tasmota_loop_resume();
+    }
+    be_return_nil(vm);
+  }
+  be_raise(vm, kTypeError, nullptr);
+}
+
 static int32_t l_millis(struct bvm *vm) {
   int32_t top = be_top(vm); // Get the number of arguments
   if (top == 1 || (top == 2 && be_isint(vm, 2))) {  // only 1 argument of type string accepted
@@ -105,6 +122,7 @@ void be_load_tasmotawasmlib(bvm *vm)
 class be_class_tasmota_wasm (scope: global, name: tasmota_wasm) {
     millis, func(l_millis)
     time_reached, func(l_timereached)
+    delay, func(l_delay)
     fast_loop, func(l_dummy)
     add_fast_loop, func(l_dummy)
     remove_fast_loop, func(l_dummy)

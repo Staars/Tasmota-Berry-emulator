@@ -41,38 +41,10 @@ BERRY_API void be_writebuffer(const char *buffer, size_t length)
     _js_writebuffer(buffer, length);
 }
 
-EM_ASYNC_JS(char*, _js_readbuffer, (void), {
-    // Note how we return the output of handleAsync() here.
-    const text = await waitLineText();
-    // 'jsString.length' would return the length of the string as UTF-16
-    // units, but Emscripten C strings operate as UTF-8.
-    var lengthBytes = lengthBytesUTF8(text) + 1;
-    var stringOnWasmHeap = _malloc(lengthBytes);
-    stringToUTF8(text, stringOnWasmHeap, lengthBytes);
-    return stringOnWasmHeap;
-})
-
 BERRY_API char* be_readstring(char *buffer, size_t size)
 {
-    static size_t len = 0;
-    static char *buf = NULL;
-    static char *buf_start = NULL;
-    if (!buf) {
-        buf = _js_readbuffer();
-        buf_start = buf;
-        len = strlen(buf);
-    }
-    if (len >= size) {
-        strncpy(buffer, buf, size - 1);
-        buffer[size] = '\0';
-        len -= size;
-        buf += size;
-    } else {
-        strcpy(buffer, buf);
-        free(buf_start);
-        buf = NULL;
-        buf_start = NULL;
-    }
+    (void)size;
+    buffer[0] = '\0';
     return buffer;
 }
 

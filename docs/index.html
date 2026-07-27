@@ -18,8 +18,6 @@
                 to,
                 tp,
                 pc = "",
-                readline = "",
-                readbuffer = "",
                 ws2812ledbuffer = "",
                 led_canvas,
                 led_strip = {"w":0,"h":0},
@@ -203,59 +201,59 @@
                 ltm = 2345;
             var hc = [],
                 cn = 0;
+            var submitting = false;
+            var submitQueue = [];
+
+            function submitBerryCode(source) {
+                if (typeof Module === "undefined" || typeof Module.ccall !== "function") {
+                    console.log("WASM not ready");
+                    return;
+                }
+                if (submitting) {
+                    submitQueue.push(source);
+                    return;
+                }
+                submitting = true;
+                Module.ccall("BrREPLRun", "number", ["string"], [source], { async: true })
+                    .then(function() {
+                        submitting = false;
+                        if (submitQueue.length > 0) {
+                            submitBerryCode(submitQueue.shift());
+                        }
+                    })
+                    .catch(function(e) {
+                        console.log("Berry error:", e);
+                        submitting = false;
+                    });
+            }
+
             function l(p, fromBerry) {
-                var c,
-                    cc,
-                    o = "";
-                // clearTimeout(lt);
-                // clearTimeout(ft);
-                t = eb("t1");
+                var t = eb("t1");
                 if (p == 1) {
-                    c = eb("c1");
-                    cc = c.value.trim();
+                    var c = eb("c1");
+                    var cc = c.value.trim();
                     if (cc) {
-                        o = "&c1=" + encodeURIComponent(cc);
                         hc.length > 19 && hc.pop();
                         hc.unshift(cc);
                         cn = 0;
+                        var t1 = document.createElement("div");
+                        t1.classList.add("br1");
+                        t1.innerText = cc;
+                        t.appendChild(t1);
+                        submitBerryCode(cc);
                     }
                     c.value = "";
                     t.scrollTop = 1e8;
-                    sn = t.scrollTop;
-                    if (cc) {
-                        readline = cc;
-                    }
                 }
-                if (t.scrollTop >= sn) {
-                    var d, t1;
-                    if (cc) {
-                        d = cc;
-                        var d1 = d.length > 1 ? d : null;
-                        if (d1) {
-                            t1 = document.createElement("div");
-                            t1.classList.add("br1");
-                            t1.innerText = d1;
-                            t.appendChild(t1);
-                        }
-                    }
-                    if (fromBerry) {
-                        d = fromBerry;
-                        d1 = d.length > 1 ? d : "";
-                        if (d1) {
-                            t1 = document.createElement("div");
-                            t1.classList.add("br2");
-                            t1.innerText = d1;
-                            t.appendChild(t1);
-                        }
+                if (fromBerry) {
+                    var d = fromBerry;
+                    if (d.length > 0) {
+                        var t1 = document.createElement("div");
+                        t1.classList.add("br2");
+                        t1.innerText = d;
+                        t.appendChild(t1);
                     }
                     t.scrollTop = 1e8;
-                    sn = t.scrollTop;
-                    // clearTimeout(ft);
-                    // lt = setTimeout(l, ltm);
-
-                    // ft = setTimeout(l, 2e4);
-                } else {
-                    // lt = setTimeout(l, ltm);
                 }
                 c1.focus();
                 return false;
@@ -490,9 +488,15 @@
                     }
                 })();
 
-                eb("demo_select").addEventListener("change", function() {
+                eb("led_demo_select").addEventListener("change", function() {
                     if (this.value) {
-                        readline = 'load("' + this.value + '")';
+                        submitBerryCode('load("' + this.value + '")');
+                        this.value = "";
+                    }
+                });
+                eb("lvgl_demo_select").addEventListener("change", function() {
+                    if (this.value) {
+                        submitBerryCode('load("' + this.value + '")');
                         this.value = "";
                     }
                 });
@@ -513,36 +517,50 @@
                 eb("f2").style.display = "block";
                 t.form.submit();
             }
+            async function handleEntry(entry, path) {
+                if (entry.isFile) {
+                    entry.file((file) => {
+                        const fullPath = path + entry.name;
+                        console.log(`… file: ${fullPath}`);
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            const data = new Uint8Array(e.target.result);
+                            const dir = fullPath.substring(0, fullPath.lastIndexOf("/"));
+                            if (dir) FS.createPath("/", dir, true, true);
+                            FS.writeFile(fullPath, data);
+                        };
+                        reader.readAsArrayBuffer(file);
+                    });
+                } else if (entry.isDirectory) {
+                    const reader = entry.createReader();
+                    let entries;
+                    do {
+                        entries = await new Promise(resolve => reader.readEntries(resolve));
+                        for (const child of entries) {
+                            handleEntry(child, path + entry.name + "/");
+                        }
+                    } while (entries.length > 0);
+                }
+            }
+
             function upl(ev) {
                 console.log("File(s) dropped");
-                // Prevent default behavior (Prevent file from being opened)
                 ev.preventDefault();
 
                 if (ev.dataTransfer.items) {
-                    // Use DataTransferItemList interface to access the file(s)
-                    [...ev.dataTransfer.items].forEach((item, i) => {
-                        // If dropped items aren't files, reject them
+                    [...ev.dataTransfer.items].forEach((item) => {
                         if (item.kind === "file") {
-                            const file = item.getAsFile();
-                            console.log(`… file[${i}].name = ${file.name}`);
-                            if (file) {
-                                let reader = new FileReader();
-                                reader.onload = (e) => {
-                                var bin_data = new Uint8Array(e.target.result);
-                                FS.writeFile(file.name, bin_data);
-                                };
-                                reader.readAsArrayBuffer(file);
-                            }
+                            const entry = item.webkitGetAsEntry();
+                            if (entry) handleEntry(entry, "");
                         }
                     });
                 } else {
-                    // Use DataTransfer interface to access the file(s)
                     [...ev.dataTransfer.files].forEach((file, i) => {
                         console.log(`… file[${i}].name = ${file.name}`);
                         if (file) {
-                            let reader = new FileReader();
+                            const reader = new FileReader();
                             reader.onload = (e) => {
-                            FS.writeFile(file.name, e.target.result);
+                                FS.writeFile(file.name, e.target.result);
                             };
                             reader.readAsText(file);
                         }
@@ -617,35 +635,11 @@
 
             }
 
-            // function SendFromRepl(payload){
-            //     var result = Module.ccall('BrREPLRun', // name of C function
-            //     'number', // return type
-            //     ['string'], // argument types
-            //     [payload]); // arguments
-            //     console.log("okay:", payload);
-            // }
-
             function writeOutputText(text){
                 console.log("from Berry:", text);
                 if (text) {
-                    if (text == "> " || text == ">> ") {
-                        l(null, readbuffer);
-                        readbuffer = "";
-                    } else {
-                        readbuffer += text;
-                    }
+                    l(null, text);
                 }
-            }
-
-            async function waitLineText() {
-                const waitms = (delay) =>
-                    new Promise((resolve) => setTimeout(resolve, delay));
-                while (!readline) await waitms(1);
-                var prompt = readline;
-                prompt += "\n"; //to investigate, just had to add some random char here
-                readline = null;
-                console.log("okay:", prompt);
-                return prompt;
             }
 
             function parseLedConfig(jsonString){
@@ -667,9 +661,6 @@
             }
 
             function populateDemoSelect(fs) {
-                var sel = eb("demo_select");
-                sel.innerHTML = '<option value="">-- Select demo --</option>';
-
                 function collectFiles(path, list) {
                     try {
                         fs.readdir(path).forEach(function(name) {
@@ -685,45 +676,52 @@
                     } catch(e) {}
                 }
 
-                try {
-                    var entries = fs.readdir("/demos");
-                    var dirs = [];
-                    var rootFiles = [];
-                    entries.forEach(function(name) {
-                        if (name === "." || name === "..") return;
-                        var full = "/demos/" + name;
-                        var stat = fs.stat(full);
-                        if (fs.isFile(stat.mode) && name.endsWith(".be")) {
-                            rootFiles.push(full);
-                        } else if (fs.isDir(stat.mode)) {
-                            dirs.push({ name: name, path: full });
-                        }
-                    });
+                function fillSelect(selId, basePath, prefix) {
+                    var sel = eb(selId);
+                    sel.innerHTML = '<option value="">-- none --</option>';
+                    try {
+                        var entries = fs.readdir(basePath);
+                        var dirs = [];
+                        var rootFiles = [];
+                        entries.forEach(function(name) {
+                            if (name === "." || name === "..") return;
+                            var full = basePath + "/" + name;
+                            var stat = fs.stat(full);
+                            if (fs.isFile(stat.mode) && name.endsWith(".be")) {
+                                rootFiles.push(full);
+                            } else if (fs.isDir(stat.mode)) {
+                                dirs.push({ name: name, path: full });
+                            }
+                        });
 
-                    rootFiles.sort().forEach(function(f) {
-                        var opt = document.createElement("option");
-                        opt.value = f;
-                        opt.textContent = f.replace("/demos/", "");
-                        sel.appendChild(opt);
-                    });
-
-                    dirs.sort(function(a, b) { return a.name.localeCompare(b.name); });
-                    dirs.forEach(function(d) {
-                        var files = [];
-                        collectFiles(d.path, files);
-                        files.sort();
-                        if (files.length === 0) return;
-                        var og = document.createElement("optgroup");
-                        og.label = d.name;
-                        files.forEach(function(f) {
+                        rootFiles.sort().forEach(function(f) {
                             var opt = document.createElement("option");
                             opt.value = f;
-                            opt.textContent = f.replace("/demos/" + d.name + "/", "");
-                            og.appendChild(opt);
+                            opt.textContent = f.replace(prefix, "");
+                            sel.appendChild(opt);
                         });
-                        sel.appendChild(og);
-                    });
-                } catch(e) { console.log("populateDemoSelect error:", e); }
+
+                        dirs.sort(function(a, b) { return a.name.localeCompare(b.name); });
+                        dirs.forEach(function(d) {
+                            var files = [];
+                            collectFiles(d.path, files);
+                            files.sort();
+                            if (files.length === 0) return;
+                            var og = document.createElement("optgroup");
+                            og.label = d.name;
+                            files.forEach(function(f) {
+                                var opt = document.createElement("option");
+                                opt.value = f;
+                                opt.textContent = f.replace(prefix + d.name + "/", "");
+                                og.appendChild(opt);
+                            });
+                            sel.appendChild(og);
+                        });
+                    } catch(e) { console.log("fillSelect error:", e); }
+                }
+
+                fillSelect("led_demo_select", "/demos/LED", "/demos/LED/");
+                fillSelect("lvgl_demo_select", "/demos/LVGL", "/demos/LVGL/");
             }
 
         </script>
@@ -869,9 +867,12 @@
             </div>
             <div id="toolbar" style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding: 4px 5px; border-bottom: 1px solid #555; margin-bottom: 4px;">
                 <label style="white-space:nowrap;"><input type="checkbox" id="led_toggle" checked> LED</label>
+                <select id="led_demo_select" style="width:auto; max-width:180px;">
+                    <option value="">-- none --</option>
+                </select>
                 <label style="white-space:nowrap;"><input type="checkbox" id="lvgl_toggle" checked> LVGL</label>
-                <select id="demo_select" style="width:auto; max-width:220px;">
-                    <option value="">-- Select demo --</option>
+                <select id="lvgl_demo_select" style="width:auto; max-width:180px;">
+                    <option value="">-- none --</option>
                 </select>
                 <span id="berry_status" style="white-space:nowrap; color: #47c266;">&#9679; running</span>
             </div>

@@ -246,6 +246,7 @@ module path (scope: local, file: os_path, depend: BE_USE_OS_MODULE) {
     isdir, func(m_path_isdir)
     isfile, func(m_path_isfile)
     exists, func(m_path_exists)
+    listdir, func(m_listdir)
     split, func(m_path_split)
     splitext, func(m_path_splitext)
     join, func(m_path_join)

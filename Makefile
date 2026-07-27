@@ -5,9 +5,9 @@ CFLAGS      = -Wall -Wextra -std=gnu99 -Wno-empty-translation-unit -O3 -Wno-zero
 CXXFLAGS    = -Wall -Wextra -std=c++11 -Wno-empty-translation-unit -O3 -Wno-zero-length-array
 LIBS        = -lm -ldl
 LFLAGS      = -s WASM=1 -s ASYNCIFY \
-              -s 'ASYNCIFY_IMPORTS=["_js_readbuffer"]' \
               -sEMULATE_FUNCTION_POINTER_CASTS=1 \
-              -s EXPORTED_RUNTIME_METHODS='["FS"]' \
+              -s EXPORTED_RUNTIME_METHODS='["FS", "ccall"]' \
+              -s EXPORTED_FUNCTIONS='["_main", "_BrREPLRun"]' \
               -O1 -s SINGLE_FILE=1
 TARGET      = docs/berry.js
 EMBED_FILES = --preload-file tasmota_env --preload-file demos --preload-file env.be@/env.be

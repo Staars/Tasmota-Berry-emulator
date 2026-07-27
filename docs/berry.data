@@ -3940,8 +3940,7 @@ var palette = animate.palette(animate.PALETTE_STANDARD_TAG, 30000)
 palette.set_cb(pulse, pulse.set_color)
 
 anim.start()
-#
-print("All good")#-
+#-
  - LED driver for Ulanzi clock written in Berry
  - very simple animation in the style of Matrix
 -#
@@ -4227,7 +4226,1064 @@ class ULANIM
   end
 end
 
-return ULANIM()# import all Tasmota emulator stuff to be global
+return ULANIM()# Target resolution: 480x320.
+# Self-contained Berry interpretation of LVGL's e-bike demo.
+class EbikeDemo
+  var w, h, body_h, pages, buttons, f14, f20, f28, ink, muted, lime, panel
+
+  def text(parent, value, x, y, font, color)
+    var label = lv.label(parent)
+    label.set_text(value)
+    label.set_pos(x, y)
+    if font != nil
+      label.set_style_text_font(font, 0)
+    end
+    label.set_style_text_color(color, 0)
+    return label
+  end
+
+  def box(parent, x, y, width, height)
+    var box = lv.obj(parent)
+    box.set_pos(x, y)
+    box.set_size(width, height)
+    box.set_style_radius(16, 0)
+    box.set_style_bg_color(self.panel, 0)
+    box.set_style_bg_opa(lv.OPA_COVER, 0)
+    box.set_style_border_width(0, 0)
+    box.set_style_pad_all(10, 0)
+    return box
+  end
+
+  def show_page(index)
+    for page : self.pages
+      page.set_pos(self.w, 0)
+    end
+    self.pages[index].set_pos(0, 0)
+  end
+
+  def nav_click(obj, event)
+    self.show_page(self.buttons.find(obj))
+  end
+
+  def build_home(home)
+    self.text(home, "09:41", 12, 8, self.f14, self.muted)
+    self.text(home, "E-BIKE", self.w - 70, 8, self.f14, self.lime)
+    var arc_size = self.body_h - 62
+    if arc_size > self.w - 28
+      arc_size = self.w - 28
+    end
+    if arc_size < 125
+      arc_size = 125
+    end
+    var speed = lv.arc(home)
+    speed.set_size(arc_size, arc_size)
+    speed.set_pos((self.w - arc_size) / 2, 27)
+    speed.set_range(0, 60)
+    speed.set_value(24)
+    speed.set_bg_angles(135, 405)
+    speed.set_style_arc_width(13, lv.PART_MAIN)
+    speed.set_style_arc_color(lv.color(0x303936), lv.PART_MAIN)
+    speed.set_style_arc_width(13, lv.PART_INDICATOR)
+    speed.set_style_arc_color(self.lime, lv.PART_INDICATOR)
+    speed.set_style_bg_opa(lv.OPA_TRANSP, lv.PART_KNOB)
+    var value = self.text(home, "24", 0, 0, self.f28, self.ink)
+    value.center()
+    value.set_pos(0, -9)
+    var unit = self.text(home, "km/h", 0, 0, self.f14, self.muted)
+    unit.center()
+    unit.set_pos(0, 21)
+    var card_width = (self.w - 36) / 2
+    var card = self.box(home, 12, self.body_h - 68, card_width, 57)
+    self.text(card, "BATTERY", 0, 0, self.f14, self.muted)
+    self.text(card, "82%", 0, 22, self.f20, self.ink)
+    card = self.box(home, 24 + card_width, self.body_h - 68, card_width, 57)
+    self.text(card, "RANGE", 0, 0, self.f14, self.muted)
+    self.text(card, "48 km", 0, 22, self.f20, self.ink)
+  end
+
+  def build_settings(page)
+    self.text(page, "Settings", 14, 10, self.f28, self.ink)
+    self.text(page, "Bike preferences", 16, 43, self.f14, self.muted)
+    var y = 72
+    for name : ["Bluetooth", "Head lamp"]
+      var row = self.box(page, 12, y, self.w - 24, 43)
+      self.text(row, name, 2, 2, self.f14, self.ink)
+      var switch = lv.switch(row)
+      switch.set_size(45, 24)
+      switch.set_pos(self.w - 93, 0)
+      y += 49
+    end
+    for name : ["Brightness", "Volume", "Max speed"]
+      var row = self.box(page, 12, y, self.w - 24, 48)
+      self.text(row, name, 2, 0, self.f14, self.ink)
+      var slider = lv.slider(row)
+      slider.set_pos(self.w / 2 - 25, 5)
+      slider.set_size(self.w / 2 - 50, 12)
+      slider.set_range(0, 100)
+      slider.set_value(70, lv.ANIM_OFF)
+      y += 54
+    end
+  end
+
+  def build_stats(page)
+    self.text(page, "Ride statistics", 14, 10, self.f28, self.ink)
+    self.text(page, "<   JUL 15 - JUL 21   >", 16, 47, self.f14, self.muted)
+    var chart_height = self.body_h - 142
+    if chart_height < 45
+      chart_height = 45
+    end
+    var chart = self.box(page, 12, 73, self.w - 24, chart_height)
+    self.text(chart, "DISTANCE   TIME   ENERGY", 2, 0, self.f14, self.lime)
+    var bar_width = (self.w - 62) / 7
+    var i = 0
+    for value : [35, 68, 48, 82, 57, 94, 63]
+      var bar_height = value * (chart_height - 30) / 100
+      var bar = lv.obj(chart)
+      bar.set_size(bar_width - 4, bar_height)
+      bar.set_pos(4 + i * bar_width, chart_height - 20 - bar_height)
+      bar.set_style_bg_color(self.lime, 0)
+      bar.set_style_bg_opa(lv.OPA_COVER, 0)
+      bar.set_style_border_width(0, 0)
+      bar.set_style_radius(4, 0)
+      i += 1
+    end
+    var summary = self.box(page, 12, self.body_h - 61, self.w - 24, 50)
+    self.text(summary, "THIS WEEK", 2, 0, self.f14, self.muted)
+    self.text(summary, "126 km     5h 42m     2,480 kcal", 2, 22, self.f14, self.ink)
+  end
+
+  def init()
+    lv.start()
+    self.w = lv.get_hor_res()
+    self.h = lv.get_ver_res()
+    self.body_h = self.h - 52
+    self.f14 = lv.montserrat_font(14)
+    self.f20 = lv.montserrat_font(20)
+    self.f28 = lv.montserrat_font(28)
+    self.ink = lv.color(0xF4F7F2)
+    self.muted = lv.color(0x87918B)
+    self.lime = lv.color(0xC9F449)
+    self.panel = lv.color(0x222A27)
+    var scr = lv.scr_act()
+    scr.set_style_bg_color(lv.color(0x101417), 0)
+    scr.set_style_bg_opa(lv.OPA_COVER, 0)
+    self.pages = []
+    var i = 0
+    while i < 3
+      var page = lv.obj(scr)
+      page.set_size(self.w, self.body_h)
+      page.set_pos(self.w, 0)
+      page.set_style_bg_color(lv.color(0x101417), 0)
+      page.set_style_bg_opa(lv.OPA_COVER, 0)
+      page.set_style_border_width(0, 0)
+      page.set_style_pad_all(0, 0)
+      self.pages.push(page)
+      i += 1
+    end
+    self.build_home(self.pages[0])
+    self.build_settings(self.pages[1])
+    self.build_stats(self.pages[2])
+    var nav = lv.obj(scr)
+    nav.set_pos(0, self.h - 52)
+    nav.set_size(self.w, 52)
+    nav.set_style_bg_color(lv.color(0x1A201E), 0)
+    nav.set_style_bg_opa(lv.OPA_COVER, 0)
+    nav.set_style_border_width(0, 0)
+    nav.set_style_pad_all(4, 0)
+    self.buttons = []
+    i = 0
+    for name : ["HOME", "SETTINGS", "STATS"]
+      var button = lv.btn(nav)
+      button.set_pos(i * self.w / 3 + 3, 2)
+      button.set_size(self.w / 3 - 6, 40)
+      button.set_style_bg_color(self.panel, 0)
+      button.set_style_radius(12, 0)
+      var label = self.text(button, name, 0, 0, self.f14, self.ink)
+      label.center()
+      self.buttons.push(button)
+      i += 1
+    end
+    for button : self.buttons
+      button.add_event_cb(self.nav_click, lv.EVENT_CLICKED, 0)
+    end
+    self.show_page(0)
+  end
+end
+
+demo = EbikeDemo()
+# Target resolution: 320x240 (responsive).
+# Compact, responsive port of LVGL's interactive flex-layout editor.
+class FlexLayoutDemo
+  var play, add_btn, w, h
+
+  def add_node()
+    var n = self.play.get_child_count()
+    var node = lv.obj(self.play)
+    node.set_size(self.w * 11 / 100, self.h * 18 / 100)
+    node.set_style_radius(2, 0)
+    node.set_style_bg_color(lv.color(0x90caf9), 0)
+    var label = lv.label(node)
+    label.set_text(str(n))
+    label.center()
+  end
+
+  def flow_cb(obj, event)
+    var flows = [lv.FLEX_FLOW_ROW, lv.FLEX_FLOW_COLUMN, lv.FLEX_FLOW_ROW_WRAP, lv.FLEX_FLOW_ROW_REVERSE, lv.FLEX_FLOW_COLUMN_REVERSE]
+    self.play.set_flex_flow(flows[obj.get_selected()])
+  end
+
+  def align_cb(obj, event)
+    var aligns = [lv.FLEX_ALIGN_START, lv.FLEX_ALIGN_CENTER, lv.FLEX_ALIGN_SPACE_AROUND, lv.FLEX_ALIGN_SPACE_BETWEEN, lv.FLEX_ALIGN_SPACE_EVENLY]
+    self.play.set_flex_align(aligns[obj.get_selected()], lv.FLEX_ALIGN_START, lv.FLEX_ALIGN_START)
+  end
+
+  def scroll_cb(obj, event)
+    if obj.has_state(lv.STATE_CHECKED)
+      self.play.add_flag(lv.OBJ_FLAG_SCROLLABLE)
+    else
+      self.play.remove_flag(lv.OBJ_FLAG_SCROLLABLE)
+    end
+  end
+
+  def button_cb(obj, event)
+    if obj == self.add_btn
+      self.add_node()
+    elif self.play.get_child_count() > 0
+      self.play.get_child(-1).delete()
+    end
+  end
+
+  def init()
+    lv.start()
+    self.w = lv.get_hor_res()
+    self.h = lv.get_ver_res()
+    var scr = lv.scr_act()
+    scr.set_flex_flow(lv.FLEX_FLOW_ROW)
+    scr.set_flex_align(lv.FLEX_ALIGN_SPACE_AROUND, lv.FLEX_ALIGN_CENTER, lv.FLEX_ALIGN_CENTER)
+    self.play = lv.obj(scr)
+    self.play.set_size(self.w * 53 / 100, self.h * 82 / 100)
+    self.play.set_flex_flow(lv.FLEX_FLOW_ROW_WRAP)
+    self.play.set_flex_align(lv.FLEX_ALIGN_START, lv.FLEX_ALIGN_START, lv.FLEX_ALIGN_START)
+    self.play.set_style_pad_all(5, 0)
+    self.play.set_style_pad_gap(5, 0)
+    var controls = lv.obj(scr)
+    controls.set_size(self.w * 40 / 100, self.h * 82 / 100)
+    controls.set_flex_flow(lv.FLEX_FLOW_COLUMN)
+    controls.set_flex_align(lv.FLEX_ALIGN_START, lv.FLEX_ALIGN_CENTER, lv.FLEX_ALIGN_CENTER)
+    controls.set_style_pad_all(6, 0)
+    controls.set_style_pad_row(5, 0)
+    var title = lv.label(controls)
+    title.set_text("Flex layout")
+    var flow_dd = lv.dropdown(controls)
+    flow_dd.set_width(self.w * 34 / 100)
+    flow_dd.set_options("Row\nColumn\nRow wrap\nRow reverse\nColumn reverse")
+    var align_dd = lv.dropdown(controls)
+    align_dd.set_width(self.w * 34 / 100)
+    align_dd.set_options("Start\nCenter\nSpace around\nSpace between\nSpace evenly")
+    var scroll = lv.checkbox(controls)
+    scroll.set_text("Scrollable")
+    scroll.add_state(lv.STATE_CHECKED)
+    var buttons = lv.obj(controls)
+    buttons.remove_style_all()
+    buttons.set_size(self.w * 34 / 100, 34)
+    buttons.set_flex_flow(lv.FLEX_FLOW_ROW)
+    buttons.set_flex_align(lv.FLEX_ALIGN_SPACE_AROUND, lv.FLEX_ALIGN_CENTER, lv.FLEX_ALIGN_CENTER)
+    self.add_btn = lv.btn(buttons)
+    self.add_btn.set_size(self.w * 14 / 100, 30)
+    var label = lv.label(self.add_btn)
+    label.set_text("Add")
+    label.center()
+    var remove_btn = lv.btn(buttons)
+    remove_btn.set_size(self.w * 14 / 100, 30)
+    remove_btn.set_style_bg_color(lv.color(0xd94b4b), 0)
+    label = lv.label(remove_btn)
+    label.set_text("Remove")
+    label.center()
+    flow_dd.add_event_cb(self.flow_cb, lv.EVENT_VALUE_CHANGED, 0)
+    align_dd.add_event_cb(self.align_cb, lv.EVENT_VALUE_CHANGED, 0)
+    scroll.add_event_cb(self.scroll_cb, lv.EVENT_VALUE_CHANGED, 0)
+    self.add_btn.add_event_cb(self.button_cb, lv.EVENT_CLICKED, 0)
+    remove_btn.add_event_cb(self.button_cb, lv.EVENT_CLICKED, 0)
+    var i = 0
+    while i < 8
+      self.add_node()
+      i += 1
+    end
+  end
+end
+
+demo = FlexLayoutDemo()
+# Target resolutions: 800x480, 1280x720, or 1920x1080.
+# Native panels and controls replace upstream image assets.
+class HighResDemo
+  var nav, status, t1, v1, t2, v2, climate, scene_label, v3, v4, s4
+  var f14, f20, f28
+
+  def text(parent, value, x, y, font, color)
+    var label = lv.label(parent)
+    label.set_text(value)
+    label.set_pos(x, y)
+    if font != nil
+      label.set_style_text_font(font, 0)
+    end
+    label.set_style_text_color(lv.color(color), 0)
+    return label
+  end
+
+  def pane(parent, x, y, width, height)
+    var pane = lv.obj(parent)
+    pane.set_pos(x, y)
+    pane.set_size(width, height)
+    pane.set_style_radius(14, 0)
+    pane.set_style_border_width(1, 0)
+    pane.set_style_border_color(lv.color(0x263750), 0)
+    pane.set_style_bg_color(lv.color(0x122139), 0)
+    pane.set_style_bg_opa(lv.OPA_COVER, 0)
+    pane.set_style_pad_all(10, 0)
+    return pane
+  end
+
+  def nav_cb(obj, event)
+    var i = self.nav.find(obj)
+    if i == 0
+      self.status.set_text("Home overview  |  All systems normal")
+      self.t1.set_text("HOME ENERGY")
+      self.v1.set_text("3.8 kW")
+      self.t2.set_text("CLIMATE")
+    elif i == 1
+      self.status.set_text("Energy  |  Live power flow")
+      self.t1.set_text("SOLAR OUTPUT")
+      self.v1.set_text("2.6 kW")
+      self.t2.set_text("TODAY")
+      self.v2.set_text("18.4 kWh")
+    elif i == 2
+      self.status.set_text("Climate  |  Three active zones")
+      self.t1.set_text("AIR QUALITY")
+      self.v1.set_text("Excellent")
+      self.t2.set_text("SET POINT")
+      self.v2.set_text(str(self.climate.get_value()) + " C")
+    else
+      self.status.set_text("About  |  Native Berry high-res adaptation")
+      self.t1.set_text("LVGL")
+      self.v1.set_text("Master demo")
+      self.t2.set_text("ASSETS")
+      self.v2.set_text("Native UI")
+    end
+  end
+
+  def climate_cb(obj, event)
+    self.v2.set_text(str(obj.get_value()) + " C")
+  end
+
+  def scene_cb(obj, event)
+    self.scene_label.set_text("Evening active")
+    self.v3.set_text("9 devices")
+  end
+
+  def charge_cb(obj, event)
+    if obj.has_state(lv.STATE_CHECKED)
+      self.v4.set_text("Charging now")
+      self.s4.set_text("6.4 kW  |  184 km range")
+    else
+      self.v4.set_text("184 km range")
+      self.s4.set_text("Paused  |  Tap switch")
+    end
+  end
+
+  def init()
+    lv.start()
+    var w = lv.get_hor_res()
+    var h = lv.get_ver_res()
+    var scr = lv.scr_act()
+    scr.set_style_bg_color(lv.color(0x09111F), 0)
+    self.f14 = lv.montserrat_font(14)
+    self.f20 = lv.montserrat_font(20)
+    self.f28 = lv.montserrat_font(28)
+    var margin = 10
+    var rail = 62
+    if w < 600
+      rail = 46
+    end
+    var top = 58
+    var gap = 10
+    var usable = w - rail - margin * 2
+    var column = (usable - gap * 2) / 3
+    if w < 600
+      column = (usable - gap) / 2
+    end
+    var row = (h - top - margin * 2 - gap) / 2
+    self.text(scr, "LVGL  CONTROL CENTER", margin, 10, self.f20, 0xFFFFFF)
+    self.status = self.text(scr, "Connected  |  21 C outside", rail + margin, 38, self.f14, 0x8FA8C8)
+    self.text(scr, "09:41", w - 70, 12, self.f20, 0x65D7FF)
+    self.nav = []
+    var symbols = [lv.SYMBOL_HOME, lv.SYMBOL_CHARGE, lv.SYMBOL_REFRESH, lv.SYMBOL_SETTINGS]
+    var i = 0
+    while i < 4
+      var button = lv.btn(scr)
+      button.set_pos(margin, top + i * 50)
+      button.set_size(rail - 10, 42)
+      var label = lv.label(button)
+      label.set_text(symbols[i])
+      label.center()
+      self.nav.push(button)
+      i += 1
+    end
+    var x = rail + margin
+    var p1 = self.pane(scr, x, top, column, row)
+    var p2 = self.pane(scr, x + column + gap, top, column, row)
+    var p3x = x
+    var p3y = top + row + gap
+    if w >= 600
+      p3x = x + (column + gap) * 2
+      p3y = top
+    end
+    var p3 = self.pane(scr, p3x, p3y, column, row)
+    var p4x = x + column + gap
+    var p4w = column
+    if w >= 600
+      p4x = x
+      p4w = usable
+    end
+    var p4 = self.pane(scr, p4x, top + row + gap, p4w, row)
+    self.t1 = self.text(p1, "HOME ENERGY", 0, 0, self.f14, 0x8FA8C8)
+    self.v1 = self.text(p1, "3.8 kW", 0, 27, self.f28, 0x65D7FF)
+    self.text(p1, "Solar 2.6  Grid 1.2", 0, 64, self.f14, 0xB8C9DF)
+    var meter = lv.bar(p1)
+    meter.set_pos(0, row - 42)
+    meter.set_size(column - 22, 12)
+    meter.set_range(0, 100)
+    meter.set_value(68, 0)
+    self.t2 = self.text(p2, "CLIMATE", 0, 0, self.f14, 0x8FA8C8)
+    self.v2 = self.text(p2, "22 C", 0, 27, self.f28, 0xFFB86B)
+    self.text(p2, "Living room  |  Auto", 0, 64, self.f14, 0xB8C9DF)
+    self.climate = lv.slider(p2)
+    self.climate.set_pos(0, row - 46)
+    self.climate.set_size(column - 22, 14)
+    self.climate.set_range(16, 30)
+    self.climate.set_value(22, 0)
+    self.text(p3, "SMART HOME", 0, 0, self.f14, 0x8FA8C8)
+    self.v3 = self.text(p3, "8 devices", 0, 30, self.f20, 0xA6F3C5)
+    self.text(p3, "Lights and scenes", 0, 61, self.f14, 0xB8C9DF)
+    var scene = lv.btn(p3)
+    scene.set_pos(0, row - 52)
+    scene.set_size(column - 22, 34)
+    self.scene_label = lv.label(scene)
+    self.scene_label.set_text("Activate evening")
+    self.scene_label.center()
+    self.text(p4, "EV CHARGING", 0, 0, self.f14, 0x8FA8C8)
+    self.v4 = self.text(p4, "184 km range", 0, 28, self.f20, 0x65D7FF)
+    self.s4 = self.text(p4, "6.4 kW  |  Ready 11:20", 0, 57, self.f14, 0xB8C9DF)
+    var charge = lv.switch(p4)
+    charge.set_pos(p4w - 62, 24)
+    charge.set_size(48, 26)
+    self.text(p4, "Navigation, slider, scene and charging are interactive", 0, row - 34, self.f14, 0x7188A8)
+    for button : self.nav
+      button.add_event_cb(self.nav_cb, lv.EVENT_CLICKED, 0)
+    end
+    self.climate.add_event_cb(self.climate_cb, lv.EVENT_VALUE_CHANGED, 0)
+    scene.add_event_cb(self.scene_cb, lv.EVENT_CLICKED, 0)
+    charge.add_event_cb(self.charge_cb, lv.EVENT_VALUE_CHANGED, 0)
+  end
+end
+
+demo = HighResDemo()
+# Target resolution: 470x640.
+# Latin transliterations are used because the emulator fonts lack several scripts.
+class MultilangDemo
+  var en, es, title, subtitle, posts, like_buttons, like_labels, w, h, f14, f20, card_height
+
+  def text(parent, value, x, y, font, color)
+    var label = lv.label(parent)
+    label.set_text(value)
+    label.set_pos(x, y)
+    if font != nil
+      label.set_style_text_font(font, 0)
+    end
+    label.set_style_text_color(lv.color(color), 0)
+    return label
+  end
+
+  def card(y, initials, color)
+    var card = lv.obj(lv.scr_act())
+    card.set_pos(10, y)
+    card.set_size(self.w - 20, self.card_height - 7)
+    card.set_style_radius(12, 0)
+    card.set_style_border_width(0, 0)
+    card.set_style_bg_color(lv.color(0xFFFFFF), 0)
+    var avatar = lv.btn(card)
+    avatar.set_pos(0, 1)
+    avatar.set_size(42, 42)
+    avatar.set_style_radius(21, 0)
+    avatar.set_style_bg_color(lv.color(color), 0)
+    var label = lv.label(avatar)
+    label.set_text(initials)
+    label.center()
+    return card
+  end
+
+  def language(obj, event)
+    if obj == self.en
+      self.title.set_text("WORLD FEED")
+      self.subtitle.set_text("People and stories")
+      self.posts[0].set_text("Open source and technology enthusiast.")
+      self.posts[1].set_text("Coffee, cats, and a first novel in progress.")
+      self.posts[2].set_text("Adventure seeker and experienced climber.")
+    elif obj == self.es
+      self.title.set_text("RED MUNDIAL")
+      self.subtitle.set_text("Personas e historias")
+      self.posts[0].set_text("Entusiasta del codigo abierto y la tecnologia.")
+      self.posts[1].set_text("Cafe, gatos y una primera novela en progreso.")
+      self.posts[2].set_text("Aventurera y escaladora con experiencia.")
+    else
+      self.title.set_text("FIL MONDIAL")
+      self.subtitle.set_text("Personnes et histoires")
+      self.posts[0].set_text("Passionne par le logiciel libre et la technologie.")
+      self.posts[1].set_text("Cafe, chats et un premier roman en cours.")
+      self.posts[2].set_text("Aventuriere et alpiniste experimentee.")
+    end
+  end
+
+  def like(obj, event)
+    var i = self.like_buttons.find(obj)
+    var counts = [13, 9, 22]
+    self.like_labels[i].set_text(lv.SYMBOL_OK + " " + str(counts[i]))
+  end
+
+  def language_button(scr, x, caption)
+    var button = lv.btn(scr)
+    button.set_pos(x, 10)
+    button.set_size(38, 38)
+    var label = lv.label(button)
+    label.set_text(caption)
+    label.center()
+    return button
+  end
+
+  def init()
+    lv.start()
+    self.w = lv.get_hor_res()
+    self.h = lv.get_ver_res()
+    self.f14 = lv.montserrat_font(14)
+    self.f20 = lv.montserrat_font(20)
+    var scr = lv.scr_act()
+    scr.set_style_bg_color(lv.color(0xEEF2F7), 0)
+    var head = lv.obj(scr)
+    head.set_pos(0, 0)
+    head.set_size(self.w, 62)
+    head.set_style_bg_color(lv.color(0x3567E8), 0)
+    head.set_style_bg_opa(lv.OPA_COVER, 0)
+    head.set_style_border_width(0, 0)
+    self.title = self.text(head, "WORLD FEED", 10, 5, self.f20, 0xFFFFFF)
+    self.subtitle = self.text(head, "People and stories", 10, 32, self.f14, 0xDDE7FF)
+    self.en = self.language_button(scr, self.w - 132, "EN")
+    self.es = self.language_button(scr, self.w - 90, "ES")
+    var fr = self.language_button(scr, self.w - 48, "FR")
+    self.card_height = (self.h - 82) / 3
+    if self.card_height < 76
+      self.card_height = 76
+    end
+    var cards = [self.card(70, "ZW", 0x6D5CE7), self.card(70 + self.card_height, "SB", 0xE76D91), self.card(70 + self.card_height * 2, "AP", 0x28A89A)]
+    var names = ["Zhang Wei", "Sofia Bianchi", "Anastasia Petrova"]
+    var texts = ["Open source and technology enthusiast.", "Coffee, cats, and a first novel in progress.", "Adventure seeker and experienced climber."]
+    var counts = [12, 8, 21]
+    self.posts = []
+    self.like_buttons = []
+    self.like_labels = []
+    var i = 0
+    while i < 3
+      self.text(cards[i], names[i], 52, 0, self.f20, 0x17233B)
+      self.posts.push(self.text(cards[i], texts[i], 52, 29, self.f14, 0x53627A))
+      var button = lv.btn(cards[i])
+      button.set_pos(self.w - 92, self.card_height - 52)
+      button.set_size(54, 28)
+      var label = lv.label(button)
+      label.set_text(lv.SYMBOL_OK + " " + str(counts[i]))
+      label.center()
+      self.like_buttons.push(button)
+      self.like_labels.push(label)
+      i += 1
+    end
+    self.en.add_event_cb(self.language, lv.EVENT_CLICKED, 0)
+    self.es.add_event_cb(self.language, lv.EVENT_CLICKED, 0)
+    fr.add_event_cb(self.language, lv.EVENT_CLICKED, 0)
+    for button : self.like_buttons
+      button.add_event_cb(self.like, lv.EVENT_CLICKED, 0)
+    end
+  end
+end
+
+demo = MultilangDemo()
+# Target resolution: 320x240 (responsive).
+# Self-contained port of LVGL's scroll demo.
+class ScrollDemo
+  var panel, file_list, switches, w
+
+  def switch_cb(obj, event)
+    var i = self.switches.find(obj)
+    var flags = [lv.OBJ_FLAG_SCROLLABLE, lv.OBJ_FLAG_SCROLL_CHAIN, lv.OBJ_FLAG_SCROLL_ELASTIC, lv.OBJ_FLAG_SCROLL_MOMENTUM]
+    if obj.has_state(lv.STATE_CHECKED)
+      self.file_list.add_flag(flags[i])
+    else
+      self.file_list.remove_flag(flags[i])
+    end
+  end
+
+  def make_switch(title)
+    var row = lv.obj(self.panel)
+    row.remove_style_all()
+    row.set_size(self.w * 55 / 100, 30)
+    row.set_flex_flow(lv.FLEX_FLOW_ROW)
+    row.set_flex_align(lv.FLEX_ALIGN_START, lv.FLEX_ALIGN_CENTER, lv.FLEX_ALIGN_CENTER)
+    var text = lv.label(row)
+    text.set_text(title)
+    text.set_flex_grow(1)
+    return lv.switch(row)
+  end
+
+  def init()
+    lv.start()
+    self.w = lv.get_hor_res()
+    var h = lv.get_ver_res()
+    var scr = lv.scr_act()
+    self.panel = lv.obj(scr)
+    self.panel.set_size(self.w * 7 / 10, h * 9 / 10)
+    self.panel.center()
+    self.panel.set_flex_flow(lv.FLEX_FLOW_COLUMN)
+    self.panel.set_flex_align(lv.FLEX_ALIGN_START, lv.FLEX_ALIGN_CENTER, lv.FLEX_ALIGN_CENTER)
+    self.panel.set_style_shadow_width(16, 0)
+    self.panel.set_style_shadow_ofs_x(4, 0)
+    self.panel.set_style_shadow_ofs_y(8, 0)
+    self.panel.set_style_shadow_opa(lv.OPA_40, 0)
+    self.panel.set_style_pad_row(6, 0)
+    self.file_list = lv.list(self.panel)
+    self.file_list.set_width(self.w * 55 / 100)
+    self.file_list.set_flex_grow(1)
+    var i = 1
+    while i <= 10
+      self.file_list.add_btn(lv.SYMBOL_IMAGE, f"Image{i}.png")
+      i += 1
+    end
+    self.switches = [self.make_switch("Scrollable"), self.make_switch("Scroll chain"), self.make_switch("Elastic scroll"), self.make_switch("Scroll momentum")]
+    var flags = [lv.OBJ_FLAG_SCROLLABLE, lv.OBJ_FLAG_SCROLL_CHAIN, lv.OBJ_FLAG_SCROLL_ELASTIC, lv.OBJ_FLAG_SCROLL_MOMENTUM]
+    i = 0
+    while i < 4
+      self.switches[i].add_state(lv.STATE_CHECKED)
+      self.file_list.add_flag(flags[i])
+      self.switches[i].add_event_cb(self.switch_cb, lv.EVENT_VALUE_CHANGED, 0)
+      i += 1
+    end
+    self.file_list.move_foreground()
+  end
+end
+
+demo = ScrollDemo()
+# Target resolution: 320x240.
+# A simple Tasmota screen.
+class SimpleDemo
+  var prev_btn, next_btn, home_btn, btn_style, wifi_icon, clock_icon
+
+  def clicked_cb(obj, event)
+    var btn = "Unknown"
+    if obj == self.prev_btn
+      btn = "Prev"
+    elif obj == self.next_btn
+      btn = "Next"
+    elif obj == self.home_btn
+      btn = "Home"
+    end
+    var indev = event.get_indev()
+    var point = lv.point()
+    indev.get_point(point)
+    var area = lv.area()
+    obj.get_coords(area)
+    print(f"{btn} button pressed at ({point.x},{point.y}) local ({point.x - area.x1},{point.y - area.y1})")
+  end
+
+  def make_button(scr, x, text)
+    var button = lv.btn(scr)
+    button.set_pos(x, lv.get_ver_res() - 40)
+    button.set_size(80, 35)
+    button.add_style(self.btn_style, lv.PART_MAIN | lv.STATE_DEFAULT)
+    var label = lv.label(button)
+    label.set_text(text)
+    label.center()
+    return button
+  end
+
+  def init()
+    lv.start()
+    var hres = lv.get_hor_res()
+    var scr = lv.scr_act()
+    var f20 = lv.montserrat_font(20)
+    scr.set_style_bg_color(lv.color(0x000077), lv.PART_MAIN | lv.STATE_DEFAULT)
+    var stat_line = lv.label(scr)
+    if f20 != nil
+      stat_line.set_style_text_font(f20, lv.PART_MAIN | lv.STATE_DEFAULT)
+    end
+    stat_line.set_long_mode(lv.LABEL_LONG_SCROLL)
+    stat_line.set_width(hres)
+    stat_line.set_align(lv.TEXT_ALIGN_LEFT)
+    stat_line.set_style_bg_color(lv.color(0xD00000), lv.PART_MAIN | lv.STATE_DEFAULT)
+    stat_line.set_style_bg_opa(lv.OPA_COVER, lv.PART_MAIN | lv.STATE_DEFAULT)
+    stat_line.set_style_text_color(lv.color(0xFFFFFF), lv.PART_MAIN | lv.STATE_DEFAULT)
+    stat_line.set_text("Tasmota")
+    stat_line.refr_size()
+    stat_line.refr_pos()
+    self.wifi_icon = lv_wifi_arcs_icon(stat_line)
+    self.clock_icon = lv_clock_icon(stat_line)
+    self.btn_style = lv.style()
+    self.btn_style.set_radius(10)
+    self.btn_style.set_bg_opa(lv.OPA_COVER)
+    if f20 != nil
+      self.btn_style.set_text_font(f20)
+    end
+    self.btn_style.set_bg_color(lv.color(0x1fa3ec))
+    self.btn_style.set_border_color(lv.color(0x0000FF))
+    self.btn_style.set_text_color(lv.color(0xFFFFFF))
+    self.prev_btn = self.make_button(scr, 20, "<")
+    self.next_btn = self.make_button(scr, 220, ">")
+    self.home_btn = self.make_button(scr, 120, lv.SYMBOL_OK)
+    self.prev_btn.add_event_cb(/obj, event -> self.clicked_cb(obj, event), lv.EVENT_CLICKED, 0)
+    self.next_btn.add_event_cb(/obj, event -> self.clicked_cb(obj, event), lv.EVENT_CLICKED, 0)
+    self.home_btn.add_event_cb(/obj, event -> self.clicked_cb(obj, event), lv.EVENT_CLICKED, 0)
+  end
+end
+
+demo = SimpleDemo()
+# Target resolution: 384x384.
+# Self-contained Berry interpretation of LVGL's smartwatch demo.
+class SmartwatchDemo
+  var pages, next_buttons, side, status, play_label, f14, f20, f28
+  var white, gray, cyan, pink, green
+
+  def label(parent, value, x, y, font, color)
+    var label = lv.label(parent)
+    label.set_text(value)
+    label.set_pos(x, y)
+    if font != nil
+      label.set_style_text_font(font, 0)
+    end
+    label.set_style_text_color(color, 0)
+    return label
+  end
+
+  def panel(parent, x, y, width, height)
+    var panel = lv.obj(parent)
+    panel.set_pos(x, y)
+    panel.set_size(width, height)
+    panel.set_style_radius(18, 0)
+    panel.set_style_bg_color(lv.color(0x202630), 0)
+    panel.set_style_bg_opa(lv.OPA_COVER, 0)
+    panel.set_style_border_width(0, 0)
+    panel.set_style_pad_all(9, 0)
+    return panel
+  end
+
+  def show(index)
+    for page : self.pages
+      page.set_pos(self.side, 0)
+    end
+    self.pages[index].set_pos(0, 0)
+  end
+
+  def next_page(obj, event)
+    var i = self.next_buttons.find(obj)
+    self.show((i + 1) % 6)
+  end
+
+  def heart_click(obj, event)
+    if self.status.get_text() == "Resting heart rate"
+      self.status.set_text("Measuring... /\\_/\\_")
+    else
+      self.status.set_text("Resting heart rate")
+    end
+    self.status.center()
+    self.status.set_pos(0, 31)
+  end
+
+  def play_click(obj, event)
+    if self.play_label.get_text() == ">"
+      self.play_label.set_text("||")
+    else
+      self.play_label.set_text(">")
+    end
+    self.play_label.center()
+  end
+
+  def next_button(parent, caption)
+    var button = lv.btn(parent)
+    button.set_size(self.side / 2, 38)
+    button.set_pos(self.side / 4, self.side - 53)
+    button.set_style_radius(19, 0)
+    button.set_style_bg_color(lv.color(0x303744), 0)
+    var label = self.label(button, caption, 0, 0, self.f14, self.white)
+    label.center()
+    self.next_buttons.push(button)
+  end
+
+  def add_arc(parent, size, color, value, width)
+    var arc = lv.arc(parent)
+    arc.set_size(size, size)
+    arc.center()
+    arc.set_range(0, 100)
+    arc.set_value(value)
+    arc.set_style_arc_width(width, lv.PART_MAIN)
+    arc.set_style_arc_color(lv.color(0x292E36), lv.PART_MAIN)
+    arc.set_style_arc_width(width, lv.PART_INDICATOR)
+    arc.set_style_arc_color(color, lv.PART_INDICATOR)
+    arc.set_style_bg_opa(lv.OPA_TRANSP, lv.PART_KNOB)
+  end
+
+  def build_home(page)
+    self.add_arc(page, self.side - 24, self.pink, 78, 8)
+    self.add_arc(page, self.side - 48, self.cyan, 64, 8)
+    self.add_arc(page, self.side - 72, self.green, 88, 8)
+    var label = self.label(page, "23:17", 0, 0, self.f28, self.white)
+    label.center()
+    label.set_pos(0, -18)
+    label = self.label(page, "WED  21 JUL", 0, 0, self.f14, self.gray)
+    label.center()
+    label.set_pos(0, 17)
+    label = self.label(page, "24 C  CLEAR", 0, 0, self.f14, self.cyan)
+    label.center()
+    label.set_pos(0, 42)
+    self.next_button(page, "CONTROL")
+  end
+
+  def build_control(page)
+    var title = self.label(page, "Control center", 0, 0, self.f20, self.white)
+    title.center()
+    title.set_pos(0, -self.side / 2 + 36)
+    var i = 0
+    for name : ["Wi-Fi", "Sound", "Lamp", "Focus", "Lock", "Power"]
+      var x = self.side / 2 - 112 + (i % 2) * 116
+      var y = 55 + (i / 2) * 55
+      var panel = self.panel(page, x, y, 106, 45)
+      self.label(panel, name, 0, 4, self.f14, self.white)
+      var switch = lv.switch(panel)
+      switch.set_size(34, 20)
+      switch.set_pos(58, 3)
+      i += 1
+    end
+    self.next_button(page, "WEATHER")
+  end
+
+  def build_weather(page)
+    self.label(page, "BUDAPEST", self.side / 2 - 45, 20, self.f14, self.gray)
+    var label = self.label(page, "24 C", 0, 0, self.f28, self.white)
+    label.center()
+    label.set_pos(0, -self.side / 2 + 66)
+    self.label(page, "Clear sky   H:27  L:16", self.side / 2 - 84, 91, self.f14, self.cyan)
+    var width = self.side / 3 - 12
+    var i = 0
+    for value : ["1018 hPa", "UV  3", "54 %"]
+      var panel = self.panel(page, 8 + i * (width + 4), 125, width, 55)
+      self.label(panel, value, 0, 7, self.f14, self.white)
+      i += 1
+    end
+    self.label(page, "NOW 24   12:00 25   14:00 26", self.side / 2 - 125, 196, self.f14, self.gray)
+    self.next_button(page, "HEALTH")
+  end
+
+  def build_health(page)
+    self.label(page, "HEART", self.side / 2 - 25, 25, self.f14, self.gray)
+    var label = self.label(page, "64", 0, 0, self.f28, self.pink)
+    label.center()
+    label.set_pos(0, -30)
+    label = self.label(page, "BPM", 0, 0, self.f14, self.white)
+    label.center()
+    label.set_pos(0, 2)
+    self.status = self.label(page, "Resting heart rate", 0, 0, self.f14, self.gray)
+    self.status.center()
+    self.status.set_pos(0, 31)
+    var button = lv.btn(page)
+    button.set_pos(self.side / 2 - 70, self.side - 102)
+    button.set_size(140, 38)
+    label = self.label(button, "START / STOP", 0, 0, self.f14, self.white)
+    label.center()
+    button.add_event_cb(self.heart_click, lv.EVENT_CLICKED, 0)
+    self.next_button(page, "SPORTS")
+  end
+
+  def build_sports(page)
+    self.label(page, "TODAY'S ACTIVITY", self.side / 2 - 68, 21, self.f14, self.white)
+    self.add_arc(page, self.side - 45, self.pink, 82, 9)
+    self.add_arc(page, self.side - 80, self.cyan, 67, 9)
+    self.add_arc(page, self.side - 115, self.green, 54, 9)
+    var label = self.label(page, "8,426 STEPS   6.3 KM   472 KCAL", 0, 0, self.f14, self.white)
+    label.center()
+    label.set_pos(0, 51)
+    self.next_button(page, "MUSIC")
+  end
+
+  def build_music(page)
+    self.label(page, "NOW PLAYING", self.side / 2 - 50, 24, self.f14, self.gray)
+    var album = self.panel(page, self.side / 2 - 58, 55, 116, 100)
+    album.set_style_bg_color(lv.color(0x633B78), 0)
+    var label = self.label(album, "NEON\nNIGHTS", 0, 0, self.f20, self.white)
+    label.center()
+    label = self.label(page, "Midnight Drive", 0, 0, self.f20, self.white)
+    label.center()
+    label.set_pos(0, 42)
+    label = self.label(page, "The Satellites", 0, 0, self.f14, self.gray)
+    label.center()
+    label.set_pos(0, 66)
+    var play = lv.btn(page)
+    play.set_size(54, 54)
+    play.set_pos(self.side / 2 - 27, self.side - 111)
+    play.set_style_radius(27, 0)
+    self.play_label = self.label(play, ">", 0, 0, self.f20, self.white)
+    self.play_label.center()
+    play.add_event_cb(self.play_click, lv.EVENT_CLICKED, 0)
+    self.next_button(page, "WATCH FACE")
+  end
+
+  def init()
+    lv.start()
+    var w = lv.get_hor_res()
+    var h = lv.get_ver_res()
+    self.side = w
+    if h < self.side
+      self.side = h
+    end
+    self.f14 = lv.montserrat_font(14)
+    self.f20 = lv.montserrat_font(20)
+    self.f28 = lv.montserrat_font(28)
+    self.white = lv.color(0xFFFFFF)
+    self.gray = lv.color(0x92979E)
+    self.cyan = lv.color(0x38D8FF)
+    self.pink = lv.color(0xFF4778)
+    self.green = lv.color(0x81E65B)
+    var scr = lv.scr_act()
+    scr.set_style_bg_color(lv.color(0x080A0D), 0)
+    scr.set_style_bg_opa(lv.OPA_COVER, 0)
+    var face = lv.obj(scr)
+    face.set_size(self.side, self.side)
+    face.set_pos((w - self.side) / 2, (h - self.side) / 2)
+    face.set_style_radius(self.side / 2, 0)
+    face.set_style_bg_color(lv.color(0x11151B), 0)
+    face.set_style_bg_opa(lv.OPA_COVER, 0)
+    face.set_style_border_width(0, 0)
+    face.set_style_pad_all(0, 0)
+    self.pages = []
+    self.next_buttons = []
+    var i = 0
+    while i < 6
+      var page = lv.obj(face)
+      page.set_size(self.side, self.side)
+      page.set_pos(self.side, 0)
+      page.set_style_bg_opa(lv.OPA_TRANSP, 0)
+      page.set_style_border_width(0, 0)
+      page.set_style_pad_all(0, 0)
+      self.pages.push(page)
+      i += 1
+    end
+    self.build_home(self.pages[0])
+    self.build_control(self.pages[1])
+    self.build_weather(self.pages[2])
+    self.build_health(self.pages[3])
+    self.build_sports(self.pages[4])
+    self.build_music(self.pages[5])
+    for button : self.next_buttons
+      button.add_event_cb(self.next_page, lv.EVENT_CLICKED, 0)
+    end
+    self.show(0)
+  end
+end
+
+demo = SmartwatchDemo()
+# Target resolution: 400x400.
+# Self-contained port of LVGL's transform demo (the avatar is drawn with widgets).
+class TransformDemo
+  var scr, w, h, transform_card
+
+  def make_card(opa)
+    var card = lv.obj(self.scr)
+    var cw = self.w * 3 / 4
+    if cw > 300
+      cw = 300
+    end
+    var ch = self.h * 3 / 10
+    if ch < 82
+      ch = 82
+    end
+    if ch > 120
+      ch = 120
+    end
+    card.set_size(cw, ch)
+    card.center()
+    card.remove_flag(lv.OBJ_FLAG_SCROLLABLE | lv.OBJ_FLAG_CLICKABLE)
+    card.set_style_radius(12, 0)
+    card.set_style_border_width(0, 0)
+    card.set_style_shadow_width(16, 0)
+    card.set_style_shadow_ofs_y(5, 0)
+    card.set_style_opa(opa, 0)
+    var avatar = lv.obj(card)
+    var av = ch * 55 / 100
+    avatar.set_size(av, av)
+    avatar.align(lv.ALIGN_LEFT_MID, 8, 0)
+    avatar.set_style_radius(lv.RADIUS_CIRCLE, 0)
+    avatar.set_style_bg_color(lv.color(0x759efe), 0)
+    avatar.set_style_border_width(0, 0)
+    var face = lv.label(avatar)
+    face.set_text(lv.SYMBOL_HOME)
+    face.center()
+    var name = lv.label(card)
+    name.set_text("Pavel Svoboda")
+    name.align(lv.ALIGN_TOP_LEFT, av + 18, 8)
+    var like = lv.btn(card)
+    like.set_size((cw - av - 34) * 3 / 4, 34)
+    like.align(lv.ALIGN_BOTTOM_LEFT, av + 18, -7)
+    like.set_style_radius(lv.RADIUS_CIRCLE, 0)
+    like.set_style_bg_color(lv.color(0x4173ff), 0)
+    var label = lv.label(like)
+    label.set_text(lv.SYMBOL_OK + "  Like")
+    label.center()
+    return card
+  end
+
+  def arc_cb(obj, event)
+    self.transform_card.set_style_transform_rotation(obj.get_value() * 10, 0)
+  end
+
+  def slider_cb(obj, event)
+    var v = obj.get_value()
+    self.transform_card.set_style_transform_scale_x(v, 0)
+    self.transform_card.set_style_transform_scale_y(v, 0)
+  end
+
+  def init()
+    lv.start()
+    self.scr = lv.scr_act()
+    self.w = lv.get_hor_res()
+    self.h = lv.get_ver_res()
+    var short_side = self.w
+    if self.h < short_side
+      short_side = self.h
+    end
+    var ghost = self.make_card(lv.OPA_50)
+    self.transform_card = self.make_card(lv.OPA_COVER)
+    var arc = lv.arc(self.scr)
+    var arc_size = short_side - 20
+    arc.set_size(arc_size, arc_size)
+    arc.set_range(0, 270)
+    arc.set_value(225)
+    arc.center()
+    arc.add_flag(lv.OBJ_FLAG_ADV_HITTEST)
+    arc.add_event_cb(self.arc_cb, lv.EVENT_VALUE_CHANGED, 0)
+    ghost.move_foreground()
+    self.transform_card.move_foreground()
+    var slider = lv.slider(self.scr)
+    slider.set_width(self.w * 7 / 10)
+    slider.align(lv.ALIGN_BOTTOM_MID, 0, -12)
+    slider.set_range(128, 300)
+    slider.set_value(256, lv.ANIM_OFF)
+    slider.add_event_cb(self.slider_cb, lv.EVENT_VALUE_CHANGED, 0)
+  end
+end
+
+demo = TransformDemo()
+# import all Tasmota emulator stuff to be global
 import global
 import load
 import gpio

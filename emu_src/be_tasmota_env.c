@@ -129,4 +129,61 @@ void tasmota_emulator_init(bvm *vm){
   emscripten_console_log("Did init Tasmota emulator");
 }
 
+void tasmota_loop_pause(void) {
+  if (berry.interValID) {
+    emscripten_clear_interval(berry.interValID);
+    berry.interValID = 0;
+  }
+}
+
+void tasmota_loop_resume(void) {
+  if (!berry.interValID) {
+    berry.interValID = emscripten_set_interval(tasmota_run_loop, 5, (void*)0);
+  }
+}
+
+EMSCRIPTEN_KEEPALIVE
+int BrREPLRun(const char *source) {
+  bvm *vm = berry.vm;
+  if (!vm) return -1;
+
+  checkBeTop();
+
+  /* Try as expression first: return (source) */
+  const char *expr = be_pushfstring(vm, "return (%s)", source);
+  int idx = be_absindex(vm, -1);
+  int res = be_loadbuffer(vm, "stdin", expr, strlen(expr));
+  be_remove(vm, idx);
+
+  /* If syntax error, try as statement */
+  if (res != BE_OK && be_getexcept(vm, res) == BE_SYNTAX_ERROR) {
+    be_pop(vm, 2); /* pop exception values */
+    res = be_loadbuffer(vm, "stdin", source, strlen(source));
+  }
+
+  /* Execute if compiled successfully */
+  if (res == BE_OK) {
+    res = be_pcall(vm, 0);
+    switch (res) {
+    case BE_OK:
+      if (!be_isnil(vm, -1)) {
+        be_dumpvalue(vm, -1);
+      }
+      be_pop(vm, 1);
+      break;
+    case BE_EXCEPTION:
+      be_dumpexcept(vm);
+      be_pop(vm, 1);
+      break;
+    default:
+      return res;
+    }
+  } else {
+    be_dumpexcept(vm);
+  }
+
+  checkBeTop();
+  return 0;
+}
+
 #endif
