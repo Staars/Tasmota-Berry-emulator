@@ -15,6 +15,7 @@
 /* Display config — read from JS once at lv.start(), then immutable */
 static int32_t display_width = 320;
 static int32_t display_height = 240;
+static int32_t display_bpp = 16;
 static bbool display_started = bfalse;
 static lv_display_t *display_ref = NULL;
 
@@ -61,6 +62,13 @@ EM_JS(int, emscripten_lvgl_get_height, (), {
     return 240;
 });
 
+EM_JS(int, emscripten_lvgl_get_bpp, (), {
+    if (typeof lvgl_config !== 'undefined' && lvgl_config.bpp === "1") {
+        return 1;
+    }
+    return 16;
+});
+
 /* ---------- EM_JS: push RGBA pixels to canvas ---------- */
 EM_JS(void, emscripten_lvgl_push_pixels, (uint8_t *data, int x, int y, int w, int h), {
     if (typeof lvgl_canvas_ctx === 'undefined' || !lvgl_canvas_ctx) {
@@ -105,7 +113,7 @@ static inline uint8_t rgb565_r(uint16_t c) { return (uint8_t)(((c >> 11) & 0x1F)
 static inline uint8_t rgb565_g(uint16_t c) { return (uint8_t)(((c >> 5) & 0x3F) * 255 / 63); }
 static inline uint8_t rgb565_b(uint16_t c) { return (uint8_t)((c & 0x1F) * 255 / 31); }
 
-/* ---------- Flush callback: RGB565 framebuffer → RGBA8888 canvas ---------- */
+/* ---------- Flush callback: LVGL framebuffer → RGBA8888 canvas ---------- */
 static int flush_count = 0;
 static void flush_cb(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map) {
     int32_t w = lv_area_get_width(area);
@@ -133,15 +141,32 @@ static void flush_cb(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map)
         convbuf_size = needed;
     }
 
-    /* Convert RGB565 (2 bytes/pixel) → RGBA8888 (4 bytes/pixel) */
-    uint16_t *src = (uint16_t *)px_map;
     uint8_t *dst = convbuf;
-    for (int32_t i = 0; i < total; i++) {
-        uint16_t px = src[i];
-        dst[i * 4 + 0] = rgb565_r(px);
-        dst[i * 4 + 1] = rgb565_g(px);
-        dst[i * 4 + 2] = rgb565_b(px);
-        dst[i * 4 + 3] = 0xFF;
+    if (lv_display_get_color_format(disp) == LV_COLOR_FORMAT_I1) {
+        /* Indexed buffers start with an 8-byte palette. I1 pixels are MSB first. */
+        const uint8_t *src = px_map + LV_COLOR_INDEXED_PALETTE_SIZE(LV_COLOR_FORMAT_I1) * 4;
+        uint32_t stride = lv_draw_buf_width_to_stride((uint32_t)w, LV_COLOR_FORMAT_I1);
+        for (int32_t y = 0; y < h; y++) {
+            for (int32_t x = 0; x < w; x++) {
+                uint8_t value = (src[y * stride + (x >> 3)] >> (7 - (x & 7))) & 1;
+                int32_t i = y * w + x;
+                uint8_t gray = value ? 0xFF : 0x00;
+                dst[i * 4 + 0] = gray;
+                dst[i * 4 + 1] = gray;
+                dst[i * 4 + 2] = gray;
+                dst[i * 4 + 3] = 0xFF;
+            }
+        }
+    } else {
+        /* Convert RGB565 (2 bytes/pixel) → RGBA8888 (4 bytes/pixel). */
+        uint16_t *src = (uint16_t *)px_map;
+        for (int32_t i = 0; i < total; i++) {
+            uint16_t px = src[i];
+            dst[i * 4 + 0] = rgb565_r(px);
+            dst[i * 4 + 1] = rgb565_g(px);
+            dst[i * 4 + 2] = rgb565_b(px);
+            dst[i * 4 + 3] = 0xFF;
+        }
     }
 
     /* Log first few converted pixels */
@@ -192,10 +217,11 @@ int lv0_start(bvm *vm) {
 
     emscripten_log(EM_LOG_CONSOLE, "lv0_start: BEGIN");
 
-    /* Read display size from JS config — immutable from here */
+    /* Read display config from JS — immutable from here */
     display_width = emscripten_lvgl_get_width();
     display_height = emscripten_lvgl_get_height();
-    emscripten_log(EM_LOG_CONSOLE, "lv0_start: display %dx%d", display_width, display_height);
+    display_bpp = emscripten_lvgl_get_bpp();
+    emscripten_log(EM_LOG_CONSOLE, "lv0_start: display %dx%d, %d bpp", display_width, display_height, display_bpp);
 
     /* Set tick source */
     lv_tick_set_cb(emscripten_tick_cb);
@@ -205,8 +231,13 @@ int lv0_start(bvm *vm) {
     emscripten_log(EM_LOG_CONSOLE, "lv0_start: display created=%p", (void*)display_ref);
 
     /* Allocate framebuffer (full screen, single-buffered, partial render mode) */
-    uint32_t stride = lv_draw_buf_width_to_stride(display_width, LV_COLOR_FORMAT_NATIVE);
+    lv_color_format_t color_format = display_bpp == 1 ? LV_COLOR_FORMAT_I1 : LV_COLOR_FORMAT_NATIVE;
+    lv_display_set_color_format(display_ref, color_format);
+    uint32_t stride = lv_draw_buf_width_to_stride(display_width, color_format);
     uint32_t buf_size = stride * display_height;
+    if (color_format == LV_COLOR_FORMAT_I1) {
+        buf_size += LV_COLOR_INDEXED_PALETTE_SIZE(LV_COLOR_FORMAT_I1) * 4;
+    }
     framebuf = malloc(buf_size);
     emscripten_log(EM_LOG_CONSOLE, "lv0_start: framebuf=%p stride=%u buf_size=%u", (void*)framebuf, stride, buf_size);
     lv_display_set_buffers(display_ref, framebuf, NULL, buf_size, LV_DISPLAY_RENDER_MODE_PARTIAL);

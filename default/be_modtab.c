@@ -148,6 +148,7 @@ BERRY_LOCAL const bntvmodule_t* const be_module_table[] = {
     &be_native_module(crypto),
 #endif
 #if defined(__EMSCRIPTEN__)
+    &be_native_module(unishox),
     &be_native_module(lv),
     &be_native_module(lv_extra),
     &be_native_module(lv_tasmota),
