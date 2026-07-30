@@ -548,6 +548,12 @@
                     entry.file((file) => {
                         const fullPath = path + entry.name;
                         console.log(`… file: ${fullPath}`);
+                        if (/\.tapp_?$/i.test(entry.name)) {
+                            const reader = new FileReader();
+                            reader.onload = (e) => parseTapp(entry.name, e.target.result);
+                            reader.readAsArrayBuffer(file);
+                            return;
+                        }
                         const reader = new FileReader();
                         reader.onload = (e) => {
                             const data = new Uint8Array(e.target.result);
@@ -569,6 +575,65 @@
                 }
             }
 
+            function ensureDir(dir) {
+                var parts = dir.replace(/^\//, '').split('/');
+                var current = '';
+                for (var i = 0; i < parts.length; i++) {
+                    if (!parts[i]) continue;
+                    current += '/' + parts[i];
+                    try { FS.stat(current); } catch(e) { FS.mkdir(current); }
+                }
+            }
+
+            function parseTapp(name, data) {
+                var view = new DataView(data);
+                var eocdOffset = -1;
+                for (var i = data.byteLength - 22; i >= 0; i--) {
+                    if (view.getUint32(i, true) === 0x06054b50) { eocdOffset = i; break; }
+                }
+                if (eocdOffset < 0) { console.log("Invalid .tapp: no EOCD"); return false; }
+                var numEntries = view.getUint16(eocdOffset + 8, true);
+                var cdOffset = view.getUint32(eocdOffset + 16, true);
+                var baseName = name.replace(/\.tapp_?$/i, "");
+                var tmpDir = "/tmp_" + baseName;
+                ensureDir(tmpDir);
+                var loaded = 0;
+                var pos = cdOffset;
+                for (var e = 0; e < numEntries; e++) {
+                    if (view.getUint32(pos, true) !== 0x02014b50) { console.log("Bad central dir entry"); break; }
+                    var method = view.getUint16(pos + 10, true);
+                    var compSize = view.getUint32(pos + 20, true);
+                    var localOffset = view.getUint32(pos + 42, true);
+                    var nameLen = view.getUint16(pos + 28, true);
+                    var extraLen = view.getUint16(pos + 30, true);
+                    var commentLen = view.getUint16(pos + 32, true);
+                    var entryName = new TextDecoder().decode(data.slice(pos + 46, pos + 46 + nameLen));
+                    pos += 46 + nameLen + extraLen + commentLen;
+                    if (method !== 0) { console.log("Skipping compressed entry:", entryName); continue; }
+                    if (view.getUint32(localOffset, true) !== 0x04034b50) { console.log("Bad local header for:", entryName); continue; }
+                    var localNameLen = view.getUint16(localOffset + 26, true);
+                    var localExtraLen = view.getUint16(localOffset + 28, true);
+                    var dataOffset = localOffset + 30 + localNameLen + localExtraLen;
+                    var fileData = data.slice(dataOffset, dataOffset + (compSize || 0));
+                    if (entryName.indexOf("/") >= 0) {
+                        var subDir = tmpDir + "/" + entryName.substring(0, entryName.lastIndexOf("/"));
+                        ensureDir(subDir);
+                    }
+                    FS.writeFile(tmpDir + "/" + entryName, new Uint8Array(fileData));
+                    loaded++;
+                }
+                console.log("Extracted " + loaded + " files from " + name + " to " + tmpDir);
+                var autoexec = tmpDir + "/autoexec.be";
+                try {
+                    FS.stat(autoexec);
+                    submitBerryCode('global.tasmota.add_module_path("' + tmpDir + '");load("' + autoexec + '")');
+                    console.log("Launched extension:", baseName);
+                } catch(e) {
+                    console.log("No autoexec.be in extension:", baseName);
+                }
+                return true;
+            }
+
             function upl(ev) {
                 console.log("File(s) dropped");
                 ev.preventDefault();
@@ -583,11 +648,14 @@
                 } else {
                     [...ev.dataTransfer.files].forEach((file, i) => {
                         console.log(`… file[${i}].name = ${file.name}`);
-                        if (file) {
+                        if (!file) return;
+                        if (/\.tapp_?$/i.test(file.name)) {
                             const reader = new FileReader();
-                            reader.onload = (e) => {
-                                FS.writeFile(file.name, e.target.result);
-                            };
+                            reader.onload = (e) => parseTapp(file.name, e.target.result);
+                            reader.readAsArrayBuffer(file);
+                        } else {
+                            const reader = new FileReader();
+                            reader.onload = (e) => FS.writeFile(file.name, e.target.result);
                             reader.readAsText(file);
                         }
                     });

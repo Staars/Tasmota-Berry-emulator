@@ -5,6 +5,7 @@
 #include "be_func.h"
 #include "be_vm.h"
 #include "be_gc.h"
+#include "be_module.h"
 #include <stdint.h>
 #include <emscripten/html5.h>
 #include <emscripten/wget.h>
@@ -96,6 +97,14 @@ static int32_t l_log(struct bvm *vm) {
 }
 
 
+static int32_t l_add_module_path(struct bvm *vm) {
+  if (be_top(vm) >= 2 && be_isstring(vm, 2)) {
+    be_module_path_set(vm, be_tostring(vm, 2));
+    be_return(vm);
+  }
+  be_raise(vm, kTypeError, nullptr);
+}
+
 extern void be_writeEmulatorbuffer(const char *buffer, size_t length);
 static int32_t l_led_buffer(struct bvm *vm) {
   int32_t top = be_top(vm); 
@@ -113,6 +122,7 @@ void be_load_tasmotawasmlib(bvm *vm)
 {
     static const bnfuncinfo members[] = {
         { "millis", l_millis },
+        { "add_module_path", l_add_module_path },
         { NULL, NULL }
     };
     be_regclass(vm, "tasmota_wasm", members);
@@ -130,6 +140,7 @@ class be_class_tasmota_wasm (scope: global, name: tasmota_wasm) {
     log, func(l_log)
     led_buffer, func(l_led_buffer)
     urlfetch,func(l_urlfetch)
+    add_module_path, func(l_add_module_path)
 }
 @const_object_info_end */
 #include "../generate/be_fixed_be_class_tasmota_wasm.h"

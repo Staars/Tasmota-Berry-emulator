@@ -9285,6 +9285,18 @@ class Tasmota : tasmota_wasm
     end
   end
 
+  def add_extension(instance)
+    if type(instance) != 'instance'
+      raise "value_error", "instance required"
+    end
+    self.add_driver(instance)
+    import introspect
+    var init_fn = introspect.get(instance, "init")
+    if type(init_fn) == 'function'
+      init_fn(instance)
+    end
+  end
+
   # run every 50ms tick
   def run_deferred()
     if self._timers
