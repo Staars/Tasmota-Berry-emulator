@@ -9,6 +9,7 @@
 #include <stdint.h>
 #include <emscripten/html5.h>
 #include <emscripten/wget.h>
+#include <emscripten/console.h>
 #include <string.h>
 
 const char kTypeError[] = "type_error";
@@ -88,9 +89,17 @@ static int32_t l_urlfetch(struct bvm *vm) {
 
 static int32_t l_log(struct bvm *vm) {
   int32_t top = be_top(vm);
-  if (top == 2 && be_isstring(vm, 2)) {
+  if (top >= 2 && be_isstring(vm, 2)) {
     const char* msg = be_tostring(vm, 2);
-    emscripten_console_log(msg);
+    int32_t level = 3;   // LOG_LEVEL_INFO default
+    if (top >= 3 && be_isint(vm, 3)) {
+      level = be_toint(vm, 3);
+    }
+    switch (level) {
+      case 1: emscripten_console_error(msg); break;
+      case 2: emscripten_console_warn(msg); break;
+      default: emscripten_console_log(msg); break;
+    }
     be_return(vm);
   }
   be_raise(vm, kTypeError, nullptr);

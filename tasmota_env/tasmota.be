@@ -10,6 +10,11 @@ class Tasmota : tasmota_wasm
   var _timers         # holds both timers and cron
   var _crons
   var _ccmd
+  var _cmds           # registered console commands (lowercase name -> function)
+  var _resp           # captured JSON response set via resp_cmnd*
+  var _cmnd_name      # name of the command currently being dispatched
+  var _mute           # when true, suppress non-critical command logging
+  var _pixels         # config map set by the 'Pixels' command
 
   # def init()
   #   self._millis = 1
@@ -79,14 +84,186 @@ class Tasmota : tasmota_wasm
     return _class.scale_uint(num + from_offset, from_min + from_offset, from_max + from_offset, to_min + to_offset, to_max + to_offset) - to_offset
   end
 
-  def cmd(c)
-    print("cmd - fake method")
-    import string
-    if string.find(c,"so") == 0
-      var s = string.replace(c,"so","")
-      s = f"SetOption{int(s)}"
-      return {s: 'ON'}
+  def cmd(c, mute)
+    if type(c) != 'string'  return nil end
+    self._mute = mute
+    var parsed = self._cmd_parse(c)
+    if parsed == nil
+      if !self._mute
+        print(f"BRY: unknown command '{c}'")
+      end
+      return nil
     end
+    return self.exec_cmd(parsed['name'], parsed['idx'], parsed['payload'])
+  end
+
+  def exec_cmd(cmd, idx, payload)
+    import string
+    self._resp = nil
+    self._cmnd_name = cmd
+    if self._cmds == nil
+      self._cmds = {}
+    end
+    var f = self._cmds.find(string.tolower(cmd))
+    if type(f) != 'function'
+      if !self._mute
+        print(f"BRY: unknown command '{cmd}'")
+      end
+      return nil
+    end
+    var payload_json = nil
+    if type(payload) == 'string' && size(payload) > 0
+      var t = self._cmd_trim(payload)
+      if string.startswith(t, "{") || string.startswith(t, "[")
+        import json
+        try
+          payload_json = json.load(t)
+        except .. as e, m
+          payload_json = nil
+        end
+      end
+    end
+    var res = f(cmd, idx, payload, payload_json)
+    if isinstance(res, map)
+      return res
+    end
+    if self._resp
+      import json
+      var parsed = nil
+      try
+        parsed = json.load(self._resp)
+      except .. as e, m
+        parsed = nil
+      end
+      if parsed != nil
+        return parsed
+      end
+      return self._resp
+    end
+    return nil
+  end
+
+  def add_cmd(name, f)
+    import string
+    if type(f) != 'function'
+      raise "value_error", "argument must be a function"
+    end
+    if self._cmds == nil
+      self._cmds = {}
+    end
+    self._cmds[string.tolower(name)] = f
+  end
+
+  def remove_cmd(name)
+    import string
+    if self._cmds
+      self._cmds.remove(string.tolower(name))
+    end
+  end
+
+  def resp_cmnd_done()
+    self._resp = '{"' + str(self._cmnd_name) + '":"Done"}'
+  end
+
+  def resp_cmnd_error()
+    self._resp = '{"' + str(self._cmnd_name) + '":"Error"}'
+  end
+
+  def resp_cmnd_failed()
+    self._resp = '{"' + str(self._cmnd_name) + '":"Fail"}'
+  end
+
+  def resp_cmnd_str(msg)
+    self._resp = '{"' + str(self._cmnd_name) + '":"' + str(msg) + '"}'
+  end
+
+  def resp_cmnd(msg)
+    self._resp = str(msg)
+  end
+
+  def _cmd_trim(str_to_trim)
+    import string
+    if type(str_to_trim) != 'string'  return "" end
+    var sz = size(str_to_trim)
+    var i = 0
+    while i < sz
+      if string.byte(str_to_trim[i]) > 32  break end
+      i += 1
+    end
+    var j = sz - 1
+    while j >= i
+      if string.byte(str_to_trim[j]) > 32  break end
+      j -= 1
+    end
+    if i > j
+      return ""
+    end
+    if i == 0 && j == sz - 1
+      return str_to_trim
+    end
+    return str_to_trim[i..j]
+  end
+
+  def _cmd_parse(c)
+    import string
+    var s = self._cmd_trim(c)
+    # skip leading '/'
+    var i = 0
+    var sz = size(s)
+    while i < sz && s[i] == "/"
+      i += 1
+    end
+    s = (i < sz) ? s[i..-1] : ""
+    # strip mqtt topic prefix (everything up to the last '/')
+    var p = string.find(s, "/")
+    while p >= 0
+      if p + 1 < size(s)
+        s = s[p + 1..-1]
+      else
+        s = ""
+      end
+      p = string.find(s, "/")
+    end
+    # extract the command name [A-Za-z0-9_]
+    i = 0
+    sz = size(s)
+    while i < sz
+      var ch = string.byte(s[i])
+      var is_cmd_char = (ch >= 48 && ch <= 57) || (ch >= 65 && ch <= 90) || (ch >= 97 && ch <= 122) || ch == 95
+      if !is_cmd_char  break end
+      i += 1
+    end
+    if i == 0
+      return nil
+    end
+    var name = s[0..i - 1]
+    # split trailing digits as the command index
+    var name_len = size(name)
+    var digits_start = name_len
+    while digits_start > 0
+      var ch = string.byte(name[digits_start - 1])
+      if ch < 48 || ch > 57  break end
+      digits_start -= 1
+    end
+    var base_name = digits_start > 0 ? name[0..digits_start - 1] : ""
+    var idx = 0
+    if digits_start < name_len
+      idx = int(name[digits_start..name_len - 1])
+    end
+    if base_name == ""
+      return nil
+    end
+    # the rest is the payload
+    var rest = (i < sz) ? s[i..-1] : ""
+    rest = self._cmd_trim(rest)
+    if string.startswith(rest, "=")
+      if size(rest) > 1
+        rest = self._cmd_trim(rest[1..-1])
+      else
+        rest = ""
+      end
+    end
+    return {'name': base_name, 'idx': idx, 'payload': rest}
   end
 
   def add_rule()

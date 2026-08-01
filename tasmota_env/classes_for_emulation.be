@@ -19,7 +19,14 @@ class Driver
   var display
 
   def add_cmd(c, f)
-    # ignore in the emulation for now
-    # tasmota.add_cmd(c, / cmd, idx, payload, payload_json -> f(self, cmd, idx, payload, payload_json))
+    import string
+    if type(f) != 'function'
+      raise "value_error", "function required"
+    end
+    if type(c) == 'string' && string.startswith(c, "/")
+      # wildcard command prefix - not supported by the emulator dispatcher
+      return
+    end
+    tasmota.add_cmd(c, / cmd, idx, payload, payload_json -> f(self, cmd, idx, payload, payload_json))
   end
 end

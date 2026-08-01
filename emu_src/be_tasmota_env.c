@@ -7,6 +7,7 @@
 #include "be_gc.h"
 #include <stdint.h>
 #include <emscripten/html5.h>
+#include <emscripten/console.h>
 #include <string.h>
 #include "lvgl.h"
 
@@ -122,9 +123,34 @@ void tasmota_run_loop([[maybe_unused]] void *userData){
   now += 5;
 }
 
+// Berry global log(msg [, level]) -> browser console only (mirrors Tasmota log())
+static int32_t l_berry_log(struct bvm *vm) {
+  if (be_top(vm) >= 1) {
+    const char* msg = be_tostring(vm, 1);
+    int32_t level = 3;   // LOG_LEVEL_INFO default
+    if (be_top(vm) >= 2 && be_isint(vm, 2)) {
+      level = be_toint(vm, 2);
+    }
+    const char* line = be_pushfstring(vm, "BRY: %s", msg);
+    switch (level) {
+      case 1: emscripten_console_error(line); break;
+      case 2: emscripten_console_warn(line); break;
+      default: emscripten_console_log(line); break;
+    }
+    be_pop(vm, 1);   // remove the formatted string
+    be_pushnil(vm);
+    be_return(vm);
+  }
+  be_raise(vm, "type_error", nullptr);
+}
+
 void tasmota_emulator_init(bvm *vm){
   berry.vm = vm;
   lv_init();
+  // global log(msg [, level]) -> browser console only (mirrors Tasmota log())
+  // Prints "BRY: <msg>" via the browser console; level 1=error, 2=warn, else info.
+  // Keeps the REPL output buffer clean: console lines are not part of emulator output.
+  be_regfunc(vm, "log", l_berry_log);
   berry.interValID = emscripten_set_interval(tasmota_run_loop,5,(void*)0); // fastloop of 5ms is our tick
   emscripten_console_log("Did init Tasmota emulator");
 }
