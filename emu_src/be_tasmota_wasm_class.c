@@ -116,6 +116,16 @@ static int32_t l_led_buffer(struct bvm *vm) {
   be_raise(vm, kTypeError, nullptr);
 }
 
+// Berry: tasmota.save(filename:string, closure) -> bool
+static int32_t l_save(struct bvm *vm) {
+  if (be_top(vm) >= 3 && be_isstring(vm, 2)) {
+    const char *filename = be_tostring(vm, 2);
+    int res = be_savecode(vm, filename);
+    be_pushbool(vm, res == BE_OK);
+    be_return(vm);
+  }
+  be_raise(vm, kTypeError, nullptr);
+}
 
 #if !BE_USE_PRECOMPILED_OBJECT
 void be_load_tasmotawasmlib(bvm *vm)
@@ -123,6 +133,7 @@ void be_load_tasmotawasmlib(bvm *vm)
     static const bnfuncinfo members[] = {
         { "millis", l_millis },
         { "add_module_path", l_add_module_path },
+        { "save", l_save },
         { NULL, NULL }
     };
     be_regclass(vm, "tasmota_wasm", members);
@@ -141,6 +152,7 @@ class be_class_tasmota_wasm (scope: global, name: tasmota_wasm) {
     led_buffer, func(l_led_buffer)
     urlfetch,func(l_urlfetch)
     add_module_path, func(l_add_module_path)
+    save, func(l_save)
 }
 @const_object_info_end */
 #include "../generate/be_fixed_be_class_tasmota_wasm.h"

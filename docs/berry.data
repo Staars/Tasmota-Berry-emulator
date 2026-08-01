@@ -9368,7 +9368,36 @@ class Tasmota : tasmota_wasm
     return done
   end
 
-
+  def compile(f_name)
+    import string
+    if !string.endswith(f_name, ".be")
+      print(f"BRY: file '{f_name}' does not have '.be' extension")
+      return false
+    end
+    if string.find(f_name, "#") > 0
+      print(f"BRY: cannot compile file in read-only archive")
+      return false
+    end
+    var compiled_code
+    try
+      compiled_code = compile(f_name, 'file', true)
+      if compiled_code == nil
+        print(f"BRY: empty compiled file")
+        return false
+      end
+    except .. as e, m
+      print(f"BRY: failed to load '{f_name}' ({e} - {m})")
+      return false
+    end
+    var f_name_bec = f_name + "c"
+    try
+      self.save(f_name_bec, compiled_code)
+    except .. as e
+      print(format('BRY: could not save compiled file %s (%s)',f_name_bec,e))
+      return false
+    end
+    return true
+  end
 end
 
 import light_state
