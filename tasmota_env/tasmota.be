@@ -15,6 +15,7 @@ class Tasmota : tasmota_wasm
   var _cmnd_name      # name of the command currently being dispatched
   var _mute           # when true, suppress non-critical command logging
   var _pixels         # config map set by the 'Pixels' command
+  var wd              # working directory of the currently loaded extension
 
   # def init()
   #   self._millis = 1
@@ -319,6 +320,15 @@ class Tasmota : tasmota_wasm
     return {'mac': 'aa:bb:cc:22:11:03', 'quality': 100, 'rssi': -47, 'ip': '192.168.1.102', 'up': false}
   end
 
+  # Emulator compatibility values; these do not describe the browser host.
+  def arch()
+    return "ESP32"
+  end
+
+  def get_free_heap()
+    return 1048576
+  end
+
   # fast_loop() is a trimmed down version of event() called at every Tasmota loop iteration
   # it is optimized to be as fast as possible and reduce overhead
   # there is no introspect, closures must be registered directly
@@ -414,9 +424,18 @@ class Tasmota : tasmota_wasm
     end
     self.add_driver(instance)
     import introspect
-    var init_fn = introspect.get(instance, "init")
-    if type(init_fn) == 'function'
-      init_fn(instance)
+
+    # Web lifecycle compatibility: the emulator has no real web page build,
+    # but extensions still expect these callbacks after their constructor's
+    # init() has run. Do not invoke init() here: Berry already did that when
+    # the extension instance was constructed.
+    var web_add_handler_fn = introspect.get(instance, "web_add_handler")
+    if type(web_add_handler_fn) == 'function'
+      web_add_handler_fn(instance)
+    end
+    var web_add_main_button_fn = introspect.get(instance, "web_add_main_button")
+    if type(web_add_main_button_fn) == 'function'
+      web_add_main_button_fn(instance)
     end
   end
 

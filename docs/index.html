@@ -626,7 +626,10 @@
                 var autoexec = tmpDir + "/autoexec.be";
                 try {
                     FS.stat(autoexec);
-                    submitBerryCode('global.tasmota.add_module_path("' + tmpDir + '");load("' + autoexec + '")');
+                    // Keep relative path.listdir(), open(), and load() calls inside
+                    // the extracted extension. A module path alone only fixes imports.
+                    FS.chdir(tmpDir);
+                    submitBerryCode('global.tasmota.wd="' + tmpDir + '/";global.tasmota.add_module_path("' + tmpDir + '");load("' + autoexec + '")');
                     console.log("Launched extension:", baseName);
                 } catch(e) {
                     console.log("No autoexec.be in extension:", baseName);
